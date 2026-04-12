@@ -1,0 +1,90 @@
+name: Checks
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend-typecheck:
+    name: Backend — Pyright
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: latest
+      - name: Install dependencies
+        working-directory: backend
+        run: uv sync --group dev
+      - name: Pyright
+        working-directory: backend
+        run: uv run pyright
+
+  backend-lint:
+    name: Backend — Ruff
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: latest
+      - name: Install dependencies
+        working-directory: backend
+        run: uv sync --group dev
+      - name: Ruff lint
+        working-directory: backend
+        run: uv run ruff check .
+      - name: Ruff format check
+        working-directory: backend
+        run: uv run ruff format --check .
+
+  backend-test:
+    name: Backend — Pytest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: latest
+      - name: Install dependencies
+        working-directory: backend
+        run: uv sync --group dev
+      - name: Pytest
+        working-directory: backend
+        run: uv run pytest
+{% if include_frontend %}
+
+  frontend-typecheck:
+    name: Frontend — TypeScript
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install
+        working-directory: frontend
+        run: npm ci
+      - name: tsc
+        working-directory: frontend
+        run: npx tsc --noEmit
+
+  frontend-lint:
+    name: Frontend — Biome
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install
+        working-directory: frontend
+        run: npm ci
+      - name: Biome check
+        working-directory: frontend
+        run: npx biome check .
+{% endif %}

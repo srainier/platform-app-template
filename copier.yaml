@@ -1,0 +1,44 @@
+_subdirectory: template
+_templates_suffix: .jinja
+_exclude:
+  - "{% if not include_frontend %}frontend/**{% endif %}"
+  - "{% if not include_ios %}ios/**{% endif %}"
+
+# ── Prompts ──────────────────────────────────────────────────────────────────
+
+app_name:
+  type: str
+  help: "App slug — lowercase letters, digits, hyphens (e.g. my-cool-app)"
+  validator: >-
+    {% if not (app_name | regex_search('^[a-z][a-z0-9-]*$')) %}
+    Must match ^[a-z][a-z0-9-]*$ (lowercase, hyphens only, must start with a letter)
+    {% endif %}
+
+app_display_name:
+  type: str
+  help: "Human-readable app name (e.g. My Cool App)"
+
+include_frontend:
+  type: bool
+  help: "Include a Next.js frontend?"
+  default: false
+
+include_ios:
+  type: bool
+  help: "Include an iOS (SwiftUI) app?"
+  default: false
+
+github_handle:
+  type: str
+  help: "Your GitHub username (e.g. srainier)"
+
+pulumi_org:
+  type: str
+  help: "Your Pulumi org name (e.g. srainier)"
+
+# ── Computed variables (never prompted) ──────────────────────────────────────
+
+app_class_name:
+  type: str
+  default: "{{ app_display_name | replace(' ', '') }}"
+  when: false

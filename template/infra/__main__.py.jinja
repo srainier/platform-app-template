@@ -1,0 +1,11 @@
+# {{ app_display_name }} — Pulumi entrypoint
+#
+# Pulumi registers resources as side effects of importing resource modules.
+# Import order: platform → database → app_platform → outputs
+from resources import (  # noqa: F401
+    app_platform,
+    database,
+    outputs,
+    platform,
+    saas,
+)

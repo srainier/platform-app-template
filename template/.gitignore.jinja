@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.env
+dist/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pyright/
+
+# uv
+# uv.lock is intentionally committed — do not add it here.
+
+# Pulumi
+*.yaml.bak
+
+# Secrets — never commit these
+.env.local
+*.pem
+*.key
+{% if include_frontend %}
+
+# Node
+node_modules/
+.next/
+.vercel/
+*.tsbuildinfo
+npm-debug.log*
+{% endif %}
+{% if include_ios %}
+
+# Xcode / Swift
+*.xcworkspace
+xcuserdata/
+DerivedData/
+.build/
+*.ipa
+*.dSYM.zip
+*.dSYM
+{% endif %}

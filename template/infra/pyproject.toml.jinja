@@ -1,0 +1,29 @@
+[project]
+name = "{{ app_name }}-infra"
+version = "0.1.0"
+description = "{{ app_display_name }} infrastructure (Pulumi)"
+requires-python = ">=3.12"
+dependencies = [
+    "pulumi>=3.0",
+    "pulumi-digitalocean>=4.0",
+]
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1",
+    "ruff>=0.6",
+]
+
+[tool.pyright]
+strict = true
+pythonVersion = "3.12"
+
+[tool.ruff]
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "UP", "B"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
