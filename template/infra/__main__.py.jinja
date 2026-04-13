@@ -2,11 +2,9 @@
 #
 # Pulumi registers resources as side effects of importing resource modules.
 # Import order: platform → config → database → app_platform → outputs
-from resources import (  # noqa: F401  # pyright: ignore[reportUnusedImport]
-    app_platform,
-    config,
-    database,
-    outputs,
-    platform,
-    saas,
-)
+from resources import app_platform  # noqa: F401  # pyright: ignore[reportUnusedImport]
+from resources import config  # noqa: F401  # pyright: ignore[reportUnusedImport]
+from resources import database  # noqa: F401  # pyright: ignore[reportUnusedImport]
+from resources import outputs  # noqa: F401  # pyright: ignore[reportUnusedImport]
+from resources import platform  # noqa: F401  # pyright: ignore[reportUnusedImport]
+from resources import saas  # noqa: F401  # pyright: ignore[reportUnusedImport]
