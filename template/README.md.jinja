@@ -36,8 +36,8 @@ This app is built on the [platform-infra](https://github.com/{{ github_handle }}
 ### Backend
 
 ```bash
-# Copy and fill in environment variables
-cp .env.example .env
+# Copy and fill in environment variables (pydantic-settings reads from backend/.env)
+cp .env.example backend/.env
 
 # Start local Postgres + Redis
 docker compose up -d
@@ -133,7 +133,9 @@ gh secret set DIGITALOCEAN_TOKEN  --body "..."
 **4. Deploy infrastructure:**
 
 ```bash
-cd infra && pulumi up
+cd infra
+pulumi stack init prod   # first time only — creates the stack in Pulumi Cloud
+pulumi up
 ```
 
 ## GitHub Actions Secrets Required

@@ -65,8 +65,11 @@ bash scripts/setup-saas.sh
 # 8. Deploy infrastructure
 cd infra && pulumi stack init prod && pulumi up
 
-# 9. Start building
-cd ../backend && uv run uvicorn app.main:app --reload
+# 9. Start building locally
+cd ..
+cp .env.example backend/.env   # pydantic-settings reads backend/.env
+docker compose up -d
+cd backend && uv sync && uv run uvicorn app.main:app --reload
 ```
 
 ## Scaffold Prompts
@@ -101,10 +104,11 @@ my-new-app/
 ├── README.md
 ├── .gitignore
 ├── .env.example
+├── compose.yaml                # local Postgres + Redis
 ├── .github/
 │   └── workflows/
-│       ├── checks.yml          # PR: pyright, ruff, pytest, tsc, biome
-│       └── deploy.yml          # main: pulumi up + app deploy
+│       ├── checks.yml          # PR: pyright, ruff, pytest, build (frontend)
+│       └── deploy.yml          # main: pulumi up
 ├── backend/
 │   ├── pyproject.toml          # uv-managed, pyright strict, ruff, pytest
 │   └── app/
@@ -117,12 +121,14 @@ my-new-app/
 │       └── test_health.py
 ├── infra/
 │   ├── Pulumi.yaml
+│   ├── Pulumi.prod.yaml
 │   ├── pyproject.toml
 │   ├── __main__.py
 │   └── resources/
 │       ├── platform.py         # StackReference → platform-infra
+│       ├── config.py           # Pulumi secrets (Clerk, Flagsmith, Sentry, Honeycomb)
 │       ├── database.py         # Creates DB on shared cluster
-│       ├── app_platform.py     # DO App Platform service
+│       ├── app_platform.py     # DO App Platform service + VPC + all secrets
 │       └── outputs.py
 ├── scripts/
 │   └── setup-saas.sh           # Creates Flagsmith/Sentry/Honeycomb resources
@@ -130,6 +136,7 @@ my-new-app/
 │   ├── package.json
 │   ├── tsconfig.json           # strict
 │   ├── biome.json
+│   ├── next.config.ts          # output: "export" (static site)
 │   └── app/
 │       ├── layout.tsx
 │       └── page.tsx

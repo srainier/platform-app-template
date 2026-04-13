@@ -54,8 +54,8 @@ jobs:
         run: uv run pytest
 {% if include_frontend %}
 
-  frontend-typecheck:
-    name: Frontend — TypeScript
+  frontend-build:
+    name: Frontend — Build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -67,9 +67,9 @@ jobs:
       - name: Install
         working-directory: frontend
         run: npm install
-      - name: tsc
+      - name: Build static export
         working-directory: frontend
-        run: npx tsc --noEmit
+        run: npm run build
 
   frontend-lint:
     name: Frontend — Biome
