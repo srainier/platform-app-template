@@ -10,4 +10,4 @@ class Settings(BaseSettings):
     environment: str = "production"
 
 
-settings = Settings()
+settings = Settings()  # type: ignore[call-arg]
