@@ -8,7 +8,7 @@ This app is built on the [platform-infra](https://github.com/{{ github_handle }}
 
 | Layer | Technology |
 |---|---|
-| Backend | FastAPI (Python 3.12), served via DigitalOcean App Platform |
+| Backend | FastAPI (Python 3.13), served via DigitalOcean App Platform |
 | Database | PostgreSQL on a shared managed cluster (private VPC) |
 | Cache / Queue | Redis on a shared managed instance |
 {% if include_frontend -%}
@@ -27,7 +27,7 @@ This app is built on the [platform-infra](https://github.com/{{ github_handle }}
 
 ### Prerequisites
 
-- Python 3.12+, [`uv`](https://docs.astral.sh/uv/)
+- Python 3.13+, [`uv`](https://docs.astral.sh/uv/)
 {% if include_frontend -%}
 - Node.js 20+
 {% endif -%}
