@@ -99,10 +99,12 @@ No manual deploy steps are needed.
 
 ## Post-Scaffold Setup
 
-After scaffolding this repo for the first time, run the SaaS setup script:
+After scaffolding this repo for the first time:
+
+**1. Create per-app SaaS resources:**
 
 ```bash
-# Set your service tokens in the environment
+# Set your admin tokens in the environment first
 export FLAGSMITH_SERVER_API_KEY=...
 export SENTRY_AUTH_TOKEN=...
 export SENTRY_ORG=...
@@ -111,28 +113,39 @@ export HONEYCOMB_API_KEY=...
 bash scripts/setup-saas.sh
 ```
 
-Then add each printed API key as a GitHub Actions secret:
+**2. Store the resulting keys as Pulumi config secrets** (this is what injects them into the app at runtime via App Platform):
 
 ```bash
-gh secret set FLAGSMITH_API_KEY --body "..."
-gh secret set SENTRY_AUTH_TOKEN --body "..."
-gh secret set SENTRY_DSN --body "..."
-gh secret set HONEYCOMB_API_KEY --body "..."
-# Clerk is manual — see script output
-gh secret set CLERK_SECRET_KEY --body "..."
+cd infra
+pulumi config set --secret clerk_secret_key  "sk_live_..."
+pulumi config set --secret flagsmith_api_key "..."
+pulumi config set --secret sentry_dsn        "https://...@sentry.io/..."
+pulumi config set --secret honeycomb_api_key "..."
+```
+
+**3. Add CI credentials as GitHub Actions secrets** (these are only needed by the deploy workflow, not by the app itself):
+
+```bash
+gh secret set PULUMI_ACCESS_TOKEN --body "..."
+gh secret set DIGITALOCEAN_TOKEN  --body "..."
+```
+
+**4. Deploy infrastructure:**
+
+```bash
+cd infra && pulumi up
 ```
 
 ## GitHub Actions Secrets Required
 
 | Secret | Description |
 |---|---|
-| `PULUMI_ACCESS_TOKEN` | Pulumi Cloud token |
-| `DIGITALOCEAN_TOKEN` | DigitalOcean API token |
-| `CLERK_SECRET_KEY` | Clerk secret key (manual, see setup-saas.sh) |
-| `FLAGSMITH_API_KEY` | From `scripts/setup-saas.sh` |
-| `SENTRY_AUTH_TOKEN` | From `scripts/setup-saas.sh` |
-| `SENTRY_DSN` | From `scripts/setup-saas.sh` |
-| `HONEYCOMB_API_KEY` | From `scripts/setup-saas.sh` |
+| `PULUMI_ACCESS_TOKEN` | Pulumi Cloud token (used by deploy workflow) |
+| `DIGITALOCEAN_TOKEN` | DigitalOcean API token (used by deploy workflow) |
+
+SaaS credentials (`CLERK_SECRET_KEY`, `FLAGSMITH_API_KEY`, `SENTRY_DSN`,
+`HONEYCOMB_API_KEY`) are stored as **Pulumi config secrets**, not GitHub secrets.
+Pulumi injects them directly into App Platform as runtime environment variables.
 
 ## Feature Flags
 

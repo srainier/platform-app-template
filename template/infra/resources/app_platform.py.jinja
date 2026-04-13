@@ -1,7 +1,7 @@
 import pulumi
 import pulumi_digitalocean as do
 
-from . import database, platform
+from . import config, database, platform
 
 _service_envs = [
     do.AppSpecServiceEnvArgs(
@@ -12,6 +12,26 @@ _service_envs = [
     do.AppSpecServiceEnvArgs(
         key="REDIS_URL",
         value=platform.redis_url,
+        type="SECRET",
+    ),
+    do.AppSpecServiceEnvArgs(
+        key="CLERK_SECRET_KEY",
+        value=config.clerk_secret_key,
+        type="SECRET",
+    ),
+    do.AppSpecServiceEnvArgs(
+        key="FLAGSMITH_API_KEY",
+        value=config.flagsmith_api_key,
+        type="SECRET",
+    ),
+    do.AppSpecServiceEnvArgs(
+        key="SENTRY_DSN",
+        value=config.sentry_dsn,
+        type="SECRET",
+    ),
+    do.AppSpecServiceEnvArgs(
+        key="HONEYCOMB_API_KEY",
+        value=config.honeycomb_api_key,
         type="SECRET",
     ),
 ]
@@ -42,8 +62,8 @@ _static_sites = [
             deploy_on_push=True,
         ),
         source_dir="frontend",
-        build_command="npm run build",
-        output_dir=".next",
+        build_command="npm install && npm run build",
+        output_dir="out",
     )
 ]
 {% else %}
@@ -57,6 +77,7 @@ app = do.App(
         region=platform.do_region,
         services=_services,
         static_sites=_static_sites,
+        vpc_uuid=platform.vpc_id,
     ),
     opts=pulumi.ResourceOptions(
         depends_on=[database.db, database.db_user],

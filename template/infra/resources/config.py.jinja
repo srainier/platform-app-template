@@ -1,0 +1,14 @@
+import pulumi
+
+cfg = pulumi.Config()
+
+# SaaS credentials — set these with:
+#   pulumi config set --secret clerk_secret_key  <value>
+#   pulumi config set --secret flagsmith_api_key <value>
+#   pulumi config set --secret sentry_dsn        <value>
+#   pulumi config set --secret honeycomb_api_key <value>
+# See scripts/setup-saas.sh for how to obtain each value.
+clerk_secret_key = cfg.require_secret("clerk_secret_key")
+flagsmith_api_key = cfg.require_secret("flagsmith_api_key")
+sentry_dsn = cfg.require_secret("sentry_dsn")
+honeycomb_api_key = cfg.require_secret("honeycomb_api_key")

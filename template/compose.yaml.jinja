@@ -1,0 +1,37 @@
+# Local development services for {{ app_display_name }}.
+# Matches the connection strings in .env.example.
+#
+# Usage:
+#   docker compose up -d      # start in background
+#   docker compose down       # stop and remove containers
+#   docker compose down -v    # also delete persisted data volumes
+
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: {{ app_name | replace('-', '_') }}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
