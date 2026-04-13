@@ -11,12 +11,12 @@ This app is built on the [platform-infra](https://github.com/{{ github_handle }}
 | Backend | FastAPI (Python 3.12), served via DigitalOcean App Platform |
 | Database | PostgreSQL on a shared managed cluster (private VPC) |
 | Cache / Queue | Redis on a shared managed instance |
-{% if include_frontend %}
+{% if include_frontend -%}
 | Frontend | Next.js (TypeScript), deployed to DigitalOcean App Platform |
-{% endif %}
-{% if include_ios %}
+{% endif -%}
+{% if include_ios -%}
 | iOS | SwiftUI |
-{% endif %}
+{% endif -%}
 | Infrastructure | Pulumi (Python), stack `{{ pulumi_org }}/{{ app_name }}/prod` |
 | Auth | Clerk |
 | Feature Flags | Flagsmith |
@@ -28,9 +28,9 @@ This app is built on the [platform-infra](https://github.com/{{ github_handle }}
 ### Prerequisites
 
 - Python 3.12+, [`uv`](https://docs.astral.sh/uv/)
-{% if include_frontend %}
+{% if include_frontend -%}
 - Node.js 20+
-{% endif %}
+{% endif -%}
 - Docker (for local Postgres + Redis)
 
 ### Backend
@@ -80,9 +80,9 @@ these are injected by Pulumi as App Platform secrets — you never manage them m
 | `REDIS_URL` | Redis connection URL |
 | `DEBUG` | Enable debug mode (default: `false`) |
 | `ENVIRONMENT` | Runtime environment (`development` / `production`) |
-{% if include_frontend %}
+{% if include_frontend -%}
 | `NEXT_PUBLIC_API_URL` | Backend API URL for the frontend |
-{% endif %}
+{% endif -%}
 | `CLERK_SECRET_KEY` | Clerk authentication secret |
 | `FLAGSMITH_API_KEY` | Flagsmith environment API key |
 | `SENTRY_DSN` | Sentry DSN for error reporting |

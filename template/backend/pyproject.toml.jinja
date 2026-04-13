@@ -24,7 +24,7 @@ dev = [
 asyncio_mode = "auto"
 
 [tool.pyright]
-strict = true
+typeCheckingMode = "strict"
 pythonVersion = "3.12"
 
 [tool.ruff]
@@ -36,6 +36,5 @@ select = ["E", "W", "F", "I", "UP", "B", "SIM"]
 [tool.ruff.format]
 quote-style = "double"
 
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+[tool.uv]
+package = false

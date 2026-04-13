@@ -62,7 +62,14 @@ export HONEYCOMB_API_KEY=...
 bash scripts/setup-saas.sh
 # Follow the printed instructions to add the remaining secrets
 
-# 8. Deploy infrastructure
+# 8. Store SaaS credentials as Pulumi config secrets
+cd infra
+pulumi config set --secret clerk_secret_key  "sk_live_..."
+pulumi config set --secret flagsmith_api_key "..."
+pulumi config set --secret sentry_dsn        "https://...@sentry.io/..."
+pulumi config set --secret honeycomb_api_key "..."
+
+# 9. Deploy infrastructure
 cd infra && pulumi stack init prod && pulumi up
 
 # 9. Start building locally
