@@ -2,11 +2,6 @@ import pulumi
 
 platform = pulumi.StackReference("{{ pulumi_org }}/platform-infra/prod")
 
-postgres_host = platform.get_output("postgres_host")
-postgres_port = platform.get_output("postgres_port")
-postgres_admin_user = platform.get_output("postgres_admin_user")
-postgres_admin_password = platform.get_output("postgres_admin_password")
 postgres_cluster_id = platform.get_output("postgres_cluster_id")
 redis_url = platform.get_output("redis_url")
-vpc_id = platform.get_output("vpc_id")
 do_region = platform.get_output("do_region")
