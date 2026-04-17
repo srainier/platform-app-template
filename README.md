@@ -111,7 +111,7 @@ my-new-app/
 ├── README.md
 ├── .gitignore
 ├── .env.example
-├── compose.yaml                # local Postgres + Redis
+├── compose.yaml                # local Postgres + Valkey
 ├── .github/
 │   └── workflows/
 │       ├── checks.yml          # PR: pyright, ruff, pytest, build (frontend)

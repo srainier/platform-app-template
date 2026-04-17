@@ -1,6 +1,10 @@
 # Local development services for {{ app_display_name }}.
 # Matches the connection strings in .env.example.
 #
+# Versions mirror what platform-infra deploys to production:
+#   - PostgreSQL 18 (managed DO cluster)
+#   - Valkey 8 (managed DO cluster — DO replaced Redis with Valkey in mid-2025)
+#
 # Usage:
 #   docker compose up -d      # start in background
 #   docker compose down       # stop and remove containers
@@ -8,7 +12,7 @@
 
 services:
   postgres:
-    image: postgres:17
+    image: postgres:18
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
@@ -23,12 +27,12 @@ services:
       timeout: 5s
       retries: 5
 
-  redis:
-    image: redis:7
+  valkey:
+    image: valkey/valkey:8
     ports:
       - "6379:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "valkey-cli", "ping"]
       interval: 5s
       timeout: 5s
       retries: 5
