@@ -1,0 +1,28 @@
+[project]
+name = "{{ app_name }}-infra"
+version = "0.1.0"
+description = "{{ app_display_name }} infrastructure (Pulumi)"
+requires-python = ">=3.13"
+dependencies = [
+    "pulumi>=3.230",
+    "pulumi-digitalocean>=4.63",
+]
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.408",
+    "ruff>=0.15",
+]
+
+[tool.pyright]
+typeCheckingMode = "strict"
+pythonVersion = "3.13"
+
+[tool.ruff]
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "UP", "B"]
+
+[tool.uv]
+package = false

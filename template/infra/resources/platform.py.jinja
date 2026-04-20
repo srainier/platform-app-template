@@ -1,0 +1,7 @@
+import pulumi
+
+platform = pulumi.StackReference("{{ pulumi_org }}/platform-infra/prod")
+
+postgres_cluster_id = platform.get_output("postgres_cluster_id")
+redis_url = platform.get_output("redis_url")
+do_region = platform.get_output("do_region")

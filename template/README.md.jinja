@@ -1,0 +1,171 @@
+# {{ app_display_name }}
+
+> Replace this with a brief description of what {{ app_display_name }} does.
+
+## Architecture
+
+This app is built on the [platform-infra](https://github.com/{{ github_handle }}/platform-infra) stack.
+
+| Layer | Technology |
+|---|---|
+| Backend | FastAPI (Python 3.13), served via DigitalOcean App Platform |
+| Database | PostgreSQL 18 on a shared managed cluster (private VPC) |
+| Cache / Queue | Valkey 8 on a shared managed instance (Redis-compatible; DO replaced Managed Redis with Valkey in mid-2025) |
+{% if include_frontend -%}
+| Frontend | Next.js (TypeScript), deployed to DigitalOcean App Platform |
+{% endif -%}
+{% if include_ios -%}
+| iOS | SwiftUI |
+{% endif -%}
+| Infrastructure | Pulumi (Python), stack `{{ pulumi_org }}/{{ app_name }}/prod` |
+| Auth | Clerk |
+| Feature Flags | Flagsmith |
+| Error Tracking | Sentry |
+| Observability | Honeycomb |
+
+## Local Development
+
+### Prerequisites
+
+- Python 3.13+, [`uv`](https://docs.astral.sh/uv/)
+{% if include_frontend -%}
+- Node.js 24+
+{% endif -%}
+- Docker (for local Postgres + Valkey)
+
+### Backend
+
+```bash
+# Copy and fill in environment variables (pydantic-settings reads from backend/.env)
+cp .env.example backend/.env
+
+# Start local Postgres + Valkey
+docker compose up -d
+
+# Install dependencies and run
+cd backend
+uv sync
+uv run uvicorn app.main:app --reload
+```
+
+The API will be available at http://localhost:8000.
+{% if include_frontend %}
+
+### Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The frontend will be available at http://localhost:3000.
+{% endif %}
+
+## Tests
+
+```bash
+cd backend
+uv run pytest
+```
+
+## Environment Variables
+
+See `.env.example` for all required variables and documentation. In production,
+these are injected by Pulumi as App Platform secrets — you never manage them manually.
+
+| Variable | Description |
+|---|---|
+| `DATABASE_URL` | PostgreSQL connection string (asyncpg driver) |
+| `REDIS_URL` | Redis connection URL |
+| `DEBUG` | Enable debug mode (default: `false`) |
+| `ENVIRONMENT` | Runtime environment (`development` / `production`) |
+{% if include_frontend -%}
+| `NEXT_PUBLIC_API_URL` | Backend API URL for the frontend |
+{% endif -%}
+| `CLERK_SECRET_KEY` | Clerk authentication secret |
+| `FLAGSMITH_API_KEY` | Flagsmith environment API key |
+| `SENTRY_DSN` | Sentry DSN for error reporting |
+| `HONEYCOMB_API_KEY` | Honeycomb API key for observability |
+
+## Deployment
+
+Merge to `main` — GitHub Actions handles everything:
+
+1. `pulumi up` provisions/updates all infrastructure
+2. DigitalOcean App Platform redeploys from the latest commit automatically
+
+No manual deploy steps are needed.
+
+## Post-Scaffold Setup
+
+After scaffolding this repo for the first time:
+
+**1. Create per-app SaaS resources:**
+
+```bash
+# Set your admin tokens in the environment first
+export FLAGSMITH_SERVER_API_KEY=...
+export SENTRY_AUTH_TOKEN=...
+export SENTRY_ORG=...
+export HONEYCOMB_API_KEY=...
+
+bash scripts/setup-saas.sh
+```
+
+**2. Store the resulting keys as Pulumi config secrets** (this is what injects them into the app at runtime via App Platform):
+
+```bash
+cd infra
+pulumi config set --secret clerk_secret_key  "sk_live_..."
+pulumi config set --secret flagsmith_api_key "..."
+pulumi config set --secret sentry_dsn        "https://...@sentry.io/..."
+pulumi config set --secret honeycomb_api_key "..."
+```
+
+**3. Add CI credentials as GitHub Actions secrets** (these are only needed by the deploy workflow, not by the app itself):
+
+```bash
+gh secret set PULUMI_ACCESS_TOKEN --body "..."
+gh secret set DIGITALOCEAN_TOKEN  --body "..."
+```
+
+**4. Deploy infrastructure:**
+
+```bash
+cd infra
+pulumi stack init prod   # first time only — creates the stack in Pulumi Cloud
+pulumi up
+```
+
+## GitHub Actions Secrets Required
+
+| Secret | Description |
+|---|---|
+| `PULUMI_ACCESS_TOKEN` | Pulumi Cloud token (used by deploy workflow) |
+| `DIGITALOCEAN_TOKEN` | DigitalOcean API token (used by deploy workflow) |
+
+SaaS credentials (`CLERK_SECRET_KEY`, `FLAGSMITH_API_KEY`, `SENTRY_DSN`,
+`HONEYCOMB_API_KEY`) are stored as **Pulumi config secrets**, not GitHub secrets.
+Pulumi injects them directly into App Platform as runtime environment variables.
+
+## Feature Flags
+
+Feature flags are managed in [Flagsmith](https://flagsmith.com). To add a flag:
+
+1. Create the flag in the Flagsmith dashboard for this project
+2. Read it in Python:
+   ```python
+   from flagsmith import Flagsmith
+   flagsmith = Flagsmith(environment_key=settings.flagsmith_api_key)
+   is_enabled = flagsmith.is_feature_enabled("my-feature")
+   ```
+
+## Dashboard Links
+
+- Pulumi: https://app.pulumi.com/{{ pulumi_org }}/{{ app_name }}
+- DigitalOcean: https://cloud.digitalocean.com/apps
+- Clerk: https://dashboard.clerk.com
+- Flagsmith: https://flagsmith.com/dashboard
+- Sentry: https://sentry.io/organizations/
+- Honeycomb: https://ui.honeycomb.io

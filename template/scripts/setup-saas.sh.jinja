@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP_NAME="{{ app_name }}"
+APP_DISPLAY_NAME="{{ app_display_name }}"
+
+echo "=== ${APP_DISPLAY_NAME} — SaaS Setup ==="
+echo ""
+echo "This script creates per-app resources in Flagsmith, Sentry, and Honeycomb."
+echo "Set the following env vars before running:"
+echo "  FLAGSMITH_SERVER_API_KEY — admin token from Flagsmith account settings"
+echo "  SENTRY_AUTH_TOKEN        — auth token from Sentry account settings"
+echo "  SENTRY_ORG               — your Sentry organisation slug"
+echo "  HONEYCOMB_API_KEY        — admin API key from Honeycomb team settings"
+echo ""
+
+# ── Flagsmith ────────────────────────────────────────────────────────────────
+if [[ -z "${FLAGSMITH_SERVER_API_KEY:-}" ]]; then
+    echo "SKIP Flagsmith: FLAGSMITH_SERVER_API_KEY not set."
+    echo "  → Create a project manually at https://flagsmith.com and store"
+    echo "    the environment API key as FLAGSMITH_API_KEY in GitHub secrets."
+else
+    echo "Creating Flagsmith project: ${APP_NAME} …"
+    ORG_ID=$(curl -sf "https://api.flagsmith.com/api/v1/organisations/" \
+        -H "Authorization: Token ${FLAGSMITH_SERVER_API_KEY}" \
+        | python3 -c 'import sys,json; print(json.load(sys.stdin)["results"][0]["id"])')
+    curl -sf -X POST "https://api.flagsmith.com/api/v1/projects/" \
+        -H "Authorization: Token ${FLAGSMITH_SERVER_API_KEY}" \
+        -H "Content-Type: application/json" \
+        -d "{\"name\": \"${APP_DISPLAY_NAME}\", \"organisation\": ${ORG_ID}}" \
+        > /dev/null
+    echo "  ✓ Flagsmith project created."
+    echo "  → Copy the environment API key from the Flagsmith dashboard"
+    echo "    and add it as FLAGSMITH_API_KEY in GitHub secrets."
+fi
+
+echo ""
+
+# ── Sentry ───────────────────────────────────────────────────────────────────
+if [[ -z "${SENTRY_AUTH_TOKEN:-}" ]] || [[ -z "${SENTRY_ORG:-}" ]]; then
+    echo "SKIP Sentry: SENTRY_AUTH_TOKEN or SENTRY_ORG not set."
+    echo "  → Create a project manually at https://sentry.io and store"
+    echo "    SENTRY_AUTH_TOKEN and SENTRY_DSN in GitHub secrets."
+else
+    echo "Creating Sentry project: ${APP_NAME} …"
+    SENTRY_TEAM="${SENTRY_ORG}"
+    curl -sf -X POST "https://sentry.io/api/0/teams/${SENTRY_ORG}/${SENTRY_TEAM}/projects/" \
+        -H "Authorization: Bearer ${SENTRY_AUTH_TOKEN}" \
+        -H "Content-Type: application/json" \
+        -d "{\"name\": \"${APP_DISPLAY_NAME}\", \"slug\": \"${APP_NAME}\", \"platform\": \"python-fastapi\"}" \
+        > /dev/null
+    echo "  ✓ Sentry project created."
+    echo "  → Retrieve the DSN from https://sentry.io/settings/${SENTRY_ORG}/projects/${APP_NAME}/keys/"
+    echo "    and add SENTRY_AUTH_TOKEN + SENTRY_DSN to GitHub secrets."
+fi
+
+echo ""
+
+# ── Honeycomb ────────────────────────────────────────────────────────────────
+if [[ -z "${HONEYCOMB_API_KEY:-}" ]]; then
+    echo "SKIP Honeycomb: HONEYCOMB_API_KEY not set."
+    echo "  → Create a dataset manually at https://ui.honeycomb.io and store"
+    echo "    HONEYCOMB_API_KEY in GitHub secrets."
+else
+    echo "Creating Honeycomb dataset: ${APP_NAME} …"
+    curl -sf -X POST "https://api.honeycomb.io/1/datasets" \
+        -H "X-Honeycomb-Team: ${HONEYCOMB_API_KEY}" \
+        -H "Content-Type: application/json" \
+        -d "{\"name\": \"${APP_NAME}\"}" \
+        > /dev/null
+    echo "  ✓ Honeycomb dataset created."
+    echo "  → Add HONEYCOMB_API_KEY to GitHub secrets."
+fi
+
+echo ""
+
+# ── Clerk ────────────────────────────────────────────────────────────────────
+echo "=== MANUAL STEP: Clerk ==="
+echo "  1. Go to https://dashboard.clerk.com"
+echo "  2. Create a new Application named '${APP_DISPLAY_NAME}'"
+echo "  3. Copy the Secret Key (sk_live_...) and add it as CLERK_SECRET_KEY"
+echo "     in GitHub Actions secrets."
+
+echo ""
+echo "=== Setup complete ==="
+echo ""
+echo "Store each key as a Pulumi config secret so Pulumi can inject it into"
+echo "App Platform at deploy time. From the infra/ directory:"
+echo ""
+echo "  cd infra"
+echo "  pulumi config set --secret clerk_secret_key  <CLERK_SECRET_KEY>"
+echo "  pulumi config set --secret flagsmith_api_key <FLAGSMITH_API_KEY>"
+echo "  pulumi config set --secret sentry_dsn        <SENTRY_DSN>"
+echo "  pulumi config set --secret honeycomb_api_key <HONEYCOMB_API_KEY>"
+echo ""
+echo "Then deploy:"
+echo "  pulumi up"
+echo ""
+echo "Note: PULUMI_ACCESS_TOKEN and DIGITALOCEAN_TOKEN still go in GitHub"
+echo "Actions secrets (gh secret set) — they are CI credentials, not app secrets."

@@ -1,0 +1,7 @@
+import pulumi
+
+from . import app_platform, database
+
+pulumi.export("app_url", app_platform.app.live_url)
+pulumi.export("database_name", database.db.name)
+pulumi.export("database_user", database.db_user.name)

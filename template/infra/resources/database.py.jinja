@@ -1,0 +1,43 @@
+import pulumi
+import pulumi_digitalocean as do
+
+from . import platform
+
+db = do.DatabaseDb(
+    "{{ app_name }}-db",
+    cluster_id=platform.postgres_cluster_id,
+    name="{{ app_name | replace('-', '_') }}",
+)
+
+db_user = do.DatabaseUser(
+    "{{ app_name }}-db-user",
+    cluster_id=platform.postgres_cluster_id,
+    name="{{ app_name | replace('-', '_') }}_user",
+)
+
+# Per-app PgBouncer pool on the shared cluster. Transaction-mode pooling keeps
+# the cluster's connection count bounded when multiple apps or instances are
+# active. DO's pools are per-database, so platform-infra's pool can't be reused.
+db_pool = do.DatabaseConnectionPool(
+    "{{ app_name }}-db-pool",
+    cluster_id=platform.postgres_cluster_id,
+    name="{{ app_name | replace('-', '_') }}_pool",
+    mode="transaction",
+    size=10,
+    db_name=db.name,
+    user=db_user.name,
+)
+
+# DATABASE_URL routes through the pool, not the cluster directly.
+database_url: pulumi.Output[str] = pulumi.Output.all(
+    host=db_pool.private_host,
+    port=db_pool.port,
+    user=db_user.name,
+    password=db_user.password,
+    db=db.name,
+).apply(
+    lambda args: (
+        f"postgresql+asyncpg://{args['user']}:{args['password']}"
+        f"@{args['host']}:{args['port']}/{args['db']}"
+    )
+)

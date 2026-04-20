@@ -1,0 +1,49 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy-infra:
+    name: Pulumi Up
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v8
+        with:
+          version: latest
+      - name: Install infra dependencies
+        working-directory: infra
+        run: uv sync
+      - name: Pulumi Up
+        working-directory: infra
+        run: uv run pulumi up --yes --stack prod
+{% raw %}
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+          DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
+{% endraw %}
+{% if include_frontend %}
+
+  verify-frontend-build:
+    name: Frontend — Build Check
+    runs-on: ubuntu-latest
+    needs: deploy-infra
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: frontend/package.json
+      - name: Install
+        working-directory: frontend
+        run: npm install
+      - name: Build static export
+        working-directory: frontend
+        run: npm run build
+      # DigitalOcean App Platform automatically rebuilds and redeploys the
+      # static site on every push to main (deploy_on_push=true in Pulumi infra).
+      # No explicit deploy step is needed here.
+{% endif %}

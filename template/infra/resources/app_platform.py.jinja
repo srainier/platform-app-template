@@ -1,0 +1,84 @@
+import pulumi
+import pulumi_digitalocean as do
+
+from . import config, database, platform
+
+_service_envs = [
+    do.AppSpecServiceEnvArgs(
+        key="DATABASE_URL",
+        value=database.database_url,
+        type="SECRET",
+    ),
+    do.AppSpecServiceEnvArgs(
+        key="REDIS_URL",
+        value=platform.redis_url,
+        type="SECRET",
+    ),
+    do.AppSpecServiceEnvArgs(
+        key="CLERK_SECRET_KEY",
+        value=config.clerk_secret_key,
+        type="SECRET",
+    ),
+    do.AppSpecServiceEnvArgs(
+        key="FLAGSMITH_API_KEY",
+        value=config.flagsmith_api_key,
+        type="SECRET",
+    ),
+    do.AppSpecServiceEnvArgs(
+        key="SENTRY_DSN",
+        value=config.sentry_dsn,
+        type="SECRET",
+    ),
+    do.AppSpecServiceEnvArgs(
+        key="HONEYCOMB_API_KEY",
+        value=config.honeycomb_api_key,
+        type="SECRET",
+    ),
+]
+
+_services = [
+    do.AppSpecServiceArgs(
+        name="api",
+        environment_slug="python",
+        github=do.AppSpecServiceGithubArgs(
+            repo="{{ github_handle }}/{{ app_name }}",
+            branch="main",
+            deploy_on_push=True,
+        ),
+        source_dir="backend",
+        run_command="uvicorn app.main:app --host 0.0.0.0 --port 8080",
+        http_port=8080,
+        instance_size_slug="apps-s-1vcpu-0.5gb",
+        envs=_service_envs,
+    )
+]
+{% if include_frontend %}
+_static_sites = [
+    do.AppSpecStaticSiteArgs(
+        name="frontend",
+        github=do.AppSpecStaticSiteGithubArgs(
+            repo="{{ github_handle }}/{{ app_name }}",
+            branch="main",
+            deploy_on_push=True,
+        ),
+        source_dir="frontend",
+        build_command="npm install && npm run build",
+        output_dir="out",
+    )
+]
+{% else %}
+_static_sites: list[do.AppSpecStaticSiteArgs] = []
+{% endif %}
+
+app = do.App(
+    "{{ app_name }}",
+    spec=do.AppSpecArgs(
+        name="{{ app_name }}",
+        region=platform.do_region,
+        services=_services,
+        static_sites=_static_sites,
+    ),
+    opts=pulumi.ResourceOptions(
+        depends_on=[database.db, database.db_user],
+    ),
+)
