@@ -113,30 +113,41 @@ export HONEYCOMB_API_KEY=...
 bash scripts/setup-saas.sh
 ```
 
-**2. Store the resulting keys as Pulumi config secrets** (this is what injects them into the app at runtime via App Platform):
+**2. Initialize Pulumi stack:**
 
 ```bash
 cd infra
+pulumi stack init prod   # first time only — creates the stack in Pulumi Cloud
+```
+
+**3. Store the resulting keys as Pulumi config secrets** (this is what injects them into the app at runtime via App Platform):
+
+```bash
 pulumi config set --secret clerk_secret_key  "sk_live_..."
 pulumi config set --secret flagsmith_api_key "..."
 pulumi config set --secret sentry_dsn        "https://...@sentry.io/..."
 pulumi config set --secret honeycomb_api_key "..."
 ```
 
-**3. Add CI credentials as GitHub Actions secrets** (these are only needed by the deploy workflow, not by the app itself):
+**4. Add CI credentials as GitHub Actions secrets** (for CI/CD deployments):
 
 ```bash
 gh secret set PULUMI_ACCESS_TOKEN --body "..."
 gh secret set DIGITALOCEAN_TOKEN  --body "..."
 ```
 
-**4. Deploy infrastructure:**
+**5. Deploy infrastructure:**
+
+For local deployment, export the same tokens as environment variables:
 
 ```bash
-cd infra
-pulumi stack init prod   # first time only — creates the stack in Pulumi Cloud
+export PULUMI_ACCESS_TOKEN="pul-..."
+export DIGITALOCEAN_TOKEN="dop_v1_..."
+
 pulumi up
 ```
+
+(In CI/CD, GitHub Actions automatically uses the secrets from step 4)
 
 ## GitHub Actions Secrets Required
 

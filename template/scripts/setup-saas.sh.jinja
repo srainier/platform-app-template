@@ -22,10 +22,10 @@ if [[ -z "${FLAGSMITH_SERVER_API_KEY:-}" ]]; then
 else
     echo "Creating Flagsmith project: ${APP_NAME} …"
     ORG_ID=$(curl -sf "https://api.flagsmith.com/api/v1/organisations/" \
-        -H "Authorization: Token ${FLAGSMITH_SERVER_API_KEY}" \
+        -H "Authorization: Api-Key ${FLAGSMITH_SERVER_API_KEY}" \
         | python3 -c 'import sys,json; print(json.load(sys.stdin)["results"][0]["id"])')
     curl -sf -X POST "https://api.flagsmith.com/api/v1/projects/" \
-        -H "Authorization: Token ${FLAGSMITH_SERVER_API_KEY}" \
+        -H "Authorization: Api-Key ${FLAGSMITH_SERVER_API_KEY}" \
         -H "Content-Type: application/json" \
         -d "{\"name\": \"${APP_DISPLAY_NAME}\", \"organisation\": ${ORG_ID}}" \
         > /dev/null

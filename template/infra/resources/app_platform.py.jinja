@@ -66,8 +66,36 @@ _static_sites = [
         output_dir="out",
     )
 ]
+
+_ingress = do.AppSpecIngressArgs(
+    rules=[
+        # Route /api/* to the backend service
+        do.AppSpecIngressRuleArgs(
+            match=do.AppSpecIngressRuleMatchArgs(
+                path=do.AppSpecIngressRuleMatchPathArgs(
+                    prefix="/api",
+                ),
+            ),
+            component=do.AppSpecIngressRuleComponentArgs(
+                name="api",
+            ),
+        ),
+        # Route everything else to the frontend
+        do.AppSpecIngressRuleArgs(
+            match=do.AppSpecIngressRuleMatchArgs(
+                path=do.AppSpecIngressRuleMatchPathArgs(
+                    prefix="/",
+                ),
+            ),
+            component=do.AppSpecIngressRuleComponentArgs(
+                name="frontend",
+            ),
+        ),
+    ],
+)
 {% else %}
 _static_sites: list[do.AppSpecStaticSiteArgs] = []
+_ingress = None  # No routing rules needed for API-only deployment
 {% endif %}
 
 app = do.App(
@@ -77,6 +105,7 @@ app = do.App(
         region=platform.do_region,
         services=_services,
         static_sites=_static_sites,
+        ingress=_ingress,
     ),
     opts=pulumi.ResourceOptions(
         depends_on=[database.db, database.db_user],
