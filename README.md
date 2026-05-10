@@ -72,9 +72,9 @@ pulumi config set --secret honeycomb_api_key "..."
 # 9. Deploy infrastructure
 cd infra && pulumi stack init prod && pulumi up
 
-# 9. Start building locally
+# 10. Start building locally
 cd ..
-cp .env.example backend/.env   # pydantic-settings reads backend/.env
+cp backend/.env.example backend/.env   # pydantic-settings reads backend/.env
 docker compose up -d
 cd backend && uv sync && uv run uvicorn app.main:app --reload
 ```
@@ -110,13 +110,14 @@ my-new-app/
 ├── LICENSE
 ├── README.md
 ├── .gitignore
-├── .env.example
+├── .env.example                # full env reference
 ├── compose.yaml                # local Postgres + Valkey
 ├── .github/
 │   └── workflows/
 │       ├── checks.yml          # PR: pyright, ruff, pytest, build (frontend)
 │       └── deploy.yml          # main: pulumi up
 ├── backend/
+│   ├── .env.example            # copy to backend/.env for local backend
 │   ├── pyproject.toml          # uv-managed, pyright strict, ruff, pytest
 │   └── app/
 │       ├── main.py             # FastAPI app
@@ -140,6 +141,7 @@ my-new-app/
 ├── scripts/
 │   └── setup-saas.sh           # Creates Flagsmith/Sentry/Honeycomb resources
 ├── frontend/                   # if include_frontend=yes
+│   ├── .env.example            # copy to frontend/.env.local
 │   ├── package.json
 │   ├── tsconfig.json           # strict
 │   ├── biome.json
