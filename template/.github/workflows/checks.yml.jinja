@@ -69,6 +69,12 @@ jobs:
         run: npm install
       - name: Build static export
         working-directory: frontend
+        # NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY must be present at build time or
+        # ClerkProvider throws during static prerender. This is a well-formed
+        # but inert dummy key so the build smoke-test passes; the real
+        # publishable key is injected by App Platform at deploy time.
+        env:
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_ZXhhbXBsZS5jbGVyay5hY2NvdW50cy5kZXYk
         run: npm run build
 
   frontend-lint:

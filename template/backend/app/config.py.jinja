@@ -1,0 +1,29 @@
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+
+    database_url: str
+    redis_url: str
+    debug: bool = False
+    environment: str = "production"
+
+    # SaaS integrations. All optional so the app boots locally even when a
+    # given integration is not configured (each feature degrades gracefully).
+    clerk_secret_key: str = ""
+    flagsmith_api_key: str = ""
+    sentry_dsn: str = ""
+    honeycomb_api_key: str = ""
+
+    # OpenTelemetry service name reported to Honeycomb.
+    otel_service_name: str = "{{ app_name }}"
+
+    # Comma-separated allowed CORS origins. Needed in local dev where the
+    # frontend (localhost:3000) calls the backend (localhost:8000) cross-origin.
+    # In production the frontend is same-origin (served under /api) so this is
+    # unused.
+    cors_origins: str = "http://localhost:3000"
+
+
+settings = Settings()  # type: ignore[call-arg]

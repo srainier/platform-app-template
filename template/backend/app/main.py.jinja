@@ -1,13 +1,75 @@
-from fastapi import FastAPI
+from contextlib import asynccontextmanager
 
+import sentry_sdk
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.api.feature import router as feature_router
 from app.api.health import router as health_router
+from app.api.me import router as me_router
+from app.api.notes import router as notes_router
+from app.config import settings
+from app.models import create_tables
+from app.telemetry import setup_telemetry
+
+# Initialise Sentry before the app is created so its FastAPI integration hooks
+# in. No-op when SENTRY_DSN is unset (e.g. local dev).
+if settings.sentry_dsn:
+    sentry_sdk.init(
+        dsn=settings.sentry_dsn,
+        environment=settings.environment,
+        traces_sample_rate=0.1,
+    )
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await create_tables()
+    yield
+
 
 app = FastAPI(
     title="{{ app_display_name }}",
     version="0.1.0",
-{% if include_frontend %}
+{%- if include_frontend %}
     root_path="/api",  # All routes served under /api prefix when frontend is deployed
-{% endif %}
+{%- endif %}
+    lifespan=lifespan,
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[o.strip() for o in settings.cors_origins.split(",") if o.strip()],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+setup_telemetry(app)
+
 app.include_router(health_router)
+app.include_router(me_router)
+app.include_router(notes_router)
+app.include_router(feature_router)
+
+
+@app.get("/")
+async def root() -> dict[str, object]:
+    """An index that reports which integrations are wired up."""
+    return {
+        "app": "{{ app_display_name }}",
+        "environment": settings.environment,
+        "integrations": {
+            "database": bool(settings.database_url),
+            "user_accounts_clerk": bool(settings.clerk_secret_key),
+            "feature_flags_flagsmith": bool(settings.flagsmith_api_key),
+            "telemetry_honeycomb": bool(settings.honeycomb_api_key),
+            "errors_sentry": bool(settings.sentry_dsn),
+        },
+        "endpoints": ["/health", "/me", "/notes", "/feature"],
+    }
+
+
+@app.get("/debug/error")
+async def debug_error() -> None:
+    """Deliberately raise so Sentry capture can be verified end to end."""
+    raise RuntimeError("Intentional test error for Sentry verification")

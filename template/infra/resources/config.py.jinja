@@ -12,3 +12,10 @@ clerk_secret_key = cfg.require_secret("clerk_secret_key")
 flagsmith_api_key = cfg.require_secret("flagsmith_api_key")
 sentry_dsn = cfg.require_secret("sentry_dsn")
 honeycomb_api_key = cfg.require_secret("honeycomb_api_key")
+{% if include_frontend %}
+
+# Clerk publishable key (pk_...) is NOT secret — it gets baked into the static
+# frontend bundle at build time. Set with:
+#   pulumi config set {{ app_name }}:clerk_publishable_key pk_test_...
+clerk_publishable_key = cfg.require("clerk_publishable_key")
+{% endif %}

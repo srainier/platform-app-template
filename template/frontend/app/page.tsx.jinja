@@ -1,11 +1,124 @@
+"use client";
+
+import {
+  SignedIn,
+  SignedOut,
+  SignInButton,
+  UserButton,
+  useAuth,
+} from "@clerk/clerk-react";
+import { useCallback, useEffect, useState } from "react";
+
+// In production the frontend and backend share a domain; the backend is
+// reachable under /api via the App Platform ingress rule. Locally, point at
+// the uvicorn dev server.
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "/api";
+
+type Note = { id: number; author: string; text: string; created_at: string };
+
+const inputStyle = { width: "70%" };
+
 export default function HomePage() {
+  const { getToken, isSignedIn } = useAuth();
+  const [me, setMe] = useState<string>("(not loaded)");
+  const [flag, setFlag] = useState<string>("(not loaded)");
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [draft, setDraft] = useState("");
+
+  const loadNotes = useCallback(async () => {
+    const res = await fetch(`${API_URL}/notes`);
+    setNotes(await res.json());
+  }, []);
+
+  const loadFlag = useCallback(async () => {
+    const res = await fetch(`${API_URL}/feature`);
+    const data = await res.json();
+    setFlag(`${data.flag} = ${data.enabled} (${data.source})`);
+  }, []);
+
+  const loadMe = useCallback(async () => {
+    const token = await getToken();
+    const res = await fetch(`${API_URL}/me`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    const data = await res.json();
+    setMe(
+      res.ok ? `user_id: ${data.user_id}` : `error: ${JSON.stringify(data)}`,
+    );
+  }, [getToken]);
+
+  useEffect(() => {
+    loadNotes();
+    loadFlag();
+  }, [loadNotes, loadFlag]);
+
+  useEffect(() => {
+    if (isSignedIn) loadMe();
+  }, [isSignedIn, loadMe]);
+
+  const addNote = async () => {
+    if (!draft.trim()) return;
+    await fetch(`${API_URL}/notes`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text: draft,
+        author: isSignedIn ? "signed-in" : "anonymous",
+      }),
+    });
+    setDraft("");
+    loadNotes();
+  };
+
   return (
     <main>
       <h1>{{ app_display_name }}</h1>
       <p>
-        Welcome! Start editing <code>frontend/app/page.tsx</code> to build your
-        app.
+        A starter app demonstrating the platform-infra integrations end to end.
       </p>
+
+      <section>
+        <h2>1. User accounts (Clerk)</h2>
+        <SignedOut>
+          <SignInButton mode="modal" />
+        </SignedOut>
+        <SignedIn>
+          <UserButton />
+          <p>
+            Backend <code>/me</code> says: <strong>{me}</strong>
+          </p>
+        </SignedIn>
+      </section>
+
+      <section>
+        <h2>2. Feature flag (Flagsmith)</h2>
+        <p>{flag}</p>
+      </section>
+
+      <section>
+        <h2>3. Database (Postgres)</h2>
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="Write a note…"
+          style={inputStyle}
+        />
+        <button type="button" onClick={addNote}>
+          Add
+        </button>
+        <ul>
+          {notes.map((n) => (
+            <li key={n.id}>
+              <strong>{n.author}:</strong> {n.text}
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section>
+        <h2>4. Telemetry (Honeycomb)</h2>
+        <p>Every request above is traced and exported to Honeycomb.</p>
+      </section>
     </main>
   );
 }

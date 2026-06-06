@@ -64,6 +64,24 @@ _static_sites = [
         source_dir="frontend",
         build_command="npm install && npm run build",
         output_dir="out",
+        envs=[
+            # NEXT_PUBLIC_* must be present at BUILD time to be inlined into the
+            # static bundle. The publishable key is public, so type=GENERAL.
+            do.AppSpecStaticSiteEnvArgs(
+                key="NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
+                value=config.clerk_publishable_key,
+                type="GENERAL",
+                scope="BUILD_TIME",
+            ),
+            # Frontend and backend share a domain; ingress routes /api to the
+            # backend service.
+            do.AppSpecStaticSiteEnvArgs(
+                key="NEXT_PUBLIC_API_URL",
+                value="/api",
+                type="GENERAL",
+                scope="BUILD_TIME",
+            ),
+        ],
     )
 ]
 

@@ -1,0 +1,16 @@
+"use client";
+
+import { ClerkProvider } from "@clerk/clerk-react";
+import type { ReactNode } from "react";
+
+// clerk-react (not @clerk/nextjs) so the app stays a pure client-side SPA,
+// compatible with Next's static export (output: "export"). @clerk/nextjs relies
+// on Server Actions, which static export rejects. The publishable key is public
+// and inlined at build time from NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY.
+const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "";
+
+export function Providers({ children }: { children: ReactNode }) {
+  return (
+    <ClerkProvider publishableKey={publishableKey}>{children}</ClerkProvider>
+  );
+}
