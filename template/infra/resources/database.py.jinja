@@ -23,18 +23,31 @@ db_pool = do.DatabaseConnectionPool(
     cluster_id=platform.postgres_cluster_id,
     name="{{ app_name | replace('-', '_') }}_pool",
     mode="transaction",
-    size=10,
+    # The shared db-s-1vcpu-1gb cluster has ~22 pooled connections and
+    # platform-pool already reserves 10; keep this modest so several apps can
+    # coexist on one cluster.
+    size=5,
     db_name=db.name,
     user=db_user.name,
 )
 
 # DATABASE_URL routes through the pool, not the cluster directly.
+#
+# Two non-obvious requirements for App Platform + a DO managed cluster:
+#   1. PUBLIC host, not private. App Platform components are not members of the
+#      VPC, so they cannot reach the pool's private hostname
+#      (private-*.db.ondigitalocean.com). They must connect over the public
+#      host, with the app registered as a trusted source to gate access.
+#   2. POOL name as the database. Connecting through the PgBouncer pool
+#      (port 25061), the connection's "database" segment must be the pool name,
+#      not the underlying db — PgBouncer routes by pool name and otherwise
+#      reports "no such database".
 database_url: pulumi.Output[str] = pulumi.Output.all(
-    host=db_pool.private_host,
+    host=db_pool.host,
     port=db_pool.port,
     user=db_user.name,
     password=db_user.password,
-    db=db.name,
+    db=db_pool.name,
 ).apply(
     lambda args: (
         f"postgresql+asyncpg://{args['user']}:{args['password']}"

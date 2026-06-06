@@ -11,6 +11,7 @@ echo "Set the following env vars before running:"
 echo "  FLAGSMITH_SERVER_API_KEY — admin token from Flagsmith account settings"
 echo "  SENTRY_AUTH_TOKEN        — auth token from Sentry account settings"
 echo "  SENTRY_ORG               — your Sentry organisation slug"
+echo "  SENTRY_TEAM              — your Sentry team slug (defaults to SENTRY_ORG)"
 echo "  HONEYCOMB_API_KEY        — admin API key from Honeycomb team settings"
 echo ""
 
@@ -22,10 +23,10 @@ if [[ -z "${FLAGSMITH_SERVER_API_KEY:-}" ]]; then
 else
     echo "Creating Flagsmith project: ${APP_NAME} …"
     ORG_ID=$(curl -sf "https://api.flagsmith.com/api/v1/organisations/" \
-        -H "Authorization: Api-Key ${FLAGSMITH_SERVER_API_KEY}" \
+        -H "Authorization: Token ${FLAGSMITH_SERVER_API_KEY}" \
         | python3 -c 'import sys,json; print(json.load(sys.stdin)["results"][0]["id"])')
     curl -sf -X POST "https://api.flagsmith.com/api/v1/projects/" \
-        -H "Authorization: Api-Key ${FLAGSMITH_SERVER_API_KEY}" \
+        -H "Authorization: Token ${FLAGSMITH_SERVER_API_KEY}" \
         -H "Content-Type: application/json" \
         -d "{\"name\": \"${APP_DISPLAY_NAME}\", \"organisation\": ${ORG_ID}}" \
         > /dev/null
@@ -42,16 +43,25 @@ if [[ -z "${SENTRY_AUTH_TOKEN:-}" ]] || [[ -z "${SENTRY_ORG:-}" ]]; then
     echo "  → Create a project manually at https://sentry.io and store"
     echo "    SENTRY_AUTH_TOKEN and SENTRY_DSN in GitHub secrets."
 else
-    echo "Creating Sentry project: ${APP_NAME} …"
-    SENTRY_TEAM="${SENTRY_ORG}"
-    curl -sf -X POST "https://sentry.io/api/0/teams/${SENTRY_ORG}/${SENTRY_TEAM}/projects/" \
+    # The create-project endpoint is scoped to a TEAM, whose slug is often NOT
+    # the same as the org slug. Set SENTRY_TEAM explicitly; default to the org
+    # slug only as a last resort.
+    SENTRY_TEAM="${SENTRY_TEAM:-$SENTRY_ORG}"
+    echo "Creating Sentry project: ${APP_NAME} (org=${SENTRY_ORG}, team=${SENTRY_TEAM}) …"
+    if curl -sf -X POST "https://sentry.io/api/0/teams/${SENTRY_ORG}/${SENTRY_TEAM}/projects/" \
         -H "Authorization: Bearer ${SENTRY_AUTH_TOKEN}" \
         -H "Content-Type: application/json" \
         -d "{\"name\": \"${APP_DISPLAY_NAME}\", \"slug\": \"${APP_NAME}\", \"platform\": \"python-fastapi\"}" \
-        > /dev/null
-    echo "  ✓ Sentry project created."
-    echo "  → Retrieve the DSN from https://sentry.io/settings/${SENTRY_ORG}/projects/${APP_NAME}/keys/"
-    echo "    and add SENTRY_AUTH_TOKEN + SENTRY_DSN to GitHub secrets."
+        > /dev/null; then
+        echo "  ✓ Sentry project created."
+        echo "  → Retrieve the DSN from https://sentry.io/settings/${SENTRY_ORG}/projects/${APP_NAME}/keys/"
+        echo "    and add SENTRY_AUTH_TOKEN + SENTRY_DSN to GitHub secrets."
+    else
+        echo "  ✗ Sentry project creation failed (often a 403: many orgs block"
+        echo "    member project creation, or SENTRY_TEAM is wrong)."
+        echo "  → Create the project manually in the Sentry UI, then copy its DSN"
+        echo "    and add SENTRY_AUTH_TOKEN + SENTRY_DSN to GitHub secrets."
+    fi
 fi
 
 echo ""
@@ -78,8 +88,11 @@ echo ""
 echo "=== MANUAL STEP: Clerk ==="
 echo "  1. Go to https://dashboard.clerk.com"
 echo "  2. Create a new Application named '${APP_DISPLAY_NAME}'"
-echo "  3. Copy the Secret Key (sk_live_...) and add it as CLERK_SECRET_KEY"
-echo "     in GitHub Actions secrets."
+echo "  3. Use the DEVELOPMENT instance keys (sk_test_... / pk_test_...). A"
+echo "     production (sk_live_) instance requires a custom domain, which the"
+echo "     default *.ondigitalocean.app host cannot satisfy."
+echo "  4. Add the Secret Key as CLERK_SECRET_KEY (Pulumi config secret), and"
+echo "     the Publishable Key as clerk_publishable_key (Pulumi config, non-secret)."
 
 echo ""
 echo "=== Setup complete ==="
