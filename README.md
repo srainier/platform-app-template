@@ -22,9 +22,10 @@ When you scaffold from this template, your new repo gets:
 ## Prerequisites
 
 - [`uv`](https://docs.astral.sh/uv/) installed
-- [Pulumi Cloud](https://app.pulumi.com/) account — ask the platform admin to
-  grant you Pulumi **Admin** on your app stack and **Read** on
-  `platform-infra/prod`
+- [Pulumi Cloud](https://app.pulumi.com/) account — ask the platform admin to add
+  you to the `app-owners` team, which grants **Read** on `platform-infra/prod`
+  (needed for the `StackReference`). You create and own your own app stack — you
+  get **Admin** on it automatically when you run `pulumi stack init`
 - A scoped **`app-deployer`** DigitalOcean token — issued by the platform admin
   (see platform-infra →
   ["Granting a new app-owner"](https://github.com/srainier/platform-infra#granting-a-new-app-owner))
@@ -66,15 +67,18 @@ export HONEYCOMB_API_KEY=...
 bash scripts/setup-saas.sh
 # Follow the printed instructions to add the remaining secrets
 
-# 8. Store SaaS credentials as Pulumi config secrets
+# 8. Initialise your app stack, then store SaaS credentials as Pulumi config secrets
 cd infra
+pulumi stack init prod   # first time only — you create and own this stack
 pulumi config set --secret clerk_secret_key  "sk_test_..."   # Clerk Development key
 pulumi config set --secret flagsmith_api_key "..."
 pulumi config set --secret sentry_dsn        "https://...@sentry.io/..."
 pulumi config set --secret honeycomb_api_key "..."
+# If you included the frontend, also set the (non-secret) Clerk publishable key:
+pulumi config set clerk_publishable_key "pk_test_..."
 
 # 9. Deploy infrastructure (creates your app + per-app database/user/pool)
-cd infra && pulumi stack init prod && pulumi up
+pulumi up   # already inside infra/ from step 8
 # NOTE: the first deploy may fail to connect to the database — this is expected.
 # The platform admin must run the one-time onboarding step (step 10) first.
 
@@ -83,8 +87,8 @@ cd infra && pulumi stack init prod && pulumi up
 #   This registers your app as a trusted source on the shared clusters and grants
 #   your DB user schema privileges. See platform-infra → "Onboarding a new app".
 
-# 11. Redeploy after onboarding
-cd infra && pulumi up   # or push to main to trigger CI/CD
+# 11. Redeploy after onboarding (still inside infra/ from step 8)
+pulumi up   # or push to main to trigger CI/CD
 
 # 12. Start building locally
 cd ..

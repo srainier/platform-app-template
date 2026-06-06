@@ -7,6 +7,13 @@ APP_DISPLAY_NAME="{{ app_display_name }}"
 echo "=== ${APP_DISPLAY_NAME} — SaaS Setup ==="
 echo ""
 echo "This script creates per-app resources in Flagsmith, Sentry, and Honeycomb."
+echo ""
+echo "The tokens below are YOUR personal SaaS-account setup tokens. They are used"
+echo "only locally, only while this script runs, to provision per-app resources."
+echo "Do NOT store them in the repo or in GitHub Actions secrets — the deploy"
+echo "workflow never uses them. The only values the app needs at runtime (the"
+echo "per-app API key / DSN) are stored as Pulumi config secrets (shown at the end)."
+echo ""
 echo "Set the following env vars before running:"
 echo "  FLAGSMITH_SERVER_API_KEY — admin token from Flagsmith account settings"
 echo "  SENTRY_AUTH_TOKEN        — auth token from Sentry account settings"
@@ -18,8 +25,9 @@ echo ""
 # ── Flagsmith ────────────────────────────────────────────────────────────────
 if [[ -z "${FLAGSMITH_SERVER_API_KEY:-}" ]]; then
     echo "SKIP Flagsmith: FLAGSMITH_SERVER_API_KEY not set."
-    echo "  → Create a project manually at https://flagsmith.com and store"
-    echo "    the environment API key as FLAGSMITH_API_KEY in GitHub secrets."
+    echo "  → Create a project manually at https://flagsmith.com, then store its"
+    echo "    environment API key as the Pulumi config secret 'flagsmith_api_key'"
+    echo "    (see the summary at the end)."
 else
     echo "Creating Flagsmith project: ${APP_NAME} …"
     ORG_ID=$(curl -sf "https://api.flagsmith.com/api/v1/organisations/" \
@@ -31,8 +39,8 @@ else
         -d "{\"name\": \"${APP_DISPLAY_NAME}\", \"organisation\": ${ORG_ID}}" \
         > /dev/null
     echo "  ✓ Flagsmith project created."
-    echo "  → Copy the environment API key from the Flagsmith dashboard"
-    echo "    and add it as FLAGSMITH_API_KEY in GitHub secrets."
+    echo "  → Copy the environment API key from the Flagsmith dashboard and store"
+    echo "    it as the Pulumi config secret 'flagsmith_api_key' (see summary below)."
 fi
 
 echo ""
@@ -40,8 +48,8 @@ echo ""
 # ── Sentry ───────────────────────────────────────────────────────────────────
 if [[ -z "${SENTRY_AUTH_TOKEN:-}" ]] || [[ -z "${SENTRY_ORG:-}" ]]; then
     echo "SKIP Sentry: SENTRY_AUTH_TOKEN or SENTRY_ORG not set."
-    echo "  → Create a project manually at https://sentry.io and store"
-    echo "    SENTRY_AUTH_TOKEN and SENTRY_DSN in GitHub secrets."
+    echo "  → Create a project manually at https://sentry.io, then store its DSN"
+    echo "    as the Pulumi config secret 'sentry_dsn' (see summary below)."
 else
     # The create-project endpoint is scoped to a TEAM, whose slug is often NOT
     # the same as the org slug. Set SENTRY_TEAM explicitly; default to the org
@@ -55,12 +63,12 @@ else
         > /dev/null; then
         echo "  ✓ Sentry project created."
         echo "  → Retrieve the DSN from https://sentry.io/settings/${SENTRY_ORG}/projects/${APP_NAME}/keys/"
-        echo "    and add SENTRY_AUTH_TOKEN + SENTRY_DSN to GitHub secrets."
+        echo "    and store it as the Pulumi config secret 'sentry_dsn' (see summary below)."
     else
         echo "  ✗ Sentry project creation failed (often a 403: many orgs block"
         echo "    member project creation, or SENTRY_TEAM is wrong)."
         echo "  → Create the project manually in the Sentry UI, then copy its DSN"
-        echo "    and add SENTRY_AUTH_TOKEN + SENTRY_DSN to GitHub secrets."
+        echo "    and store it as the Pulumi config secret 'sentry_dsn' (see summary below)."
     fi
 fi
 
@@ -69,8 +77,8 @@ echo ""
 # ── Honeycomb ────────────────────────────────────────────────────────────────
 if [[ -z "${HONEYCOMB_API_KEY:-}" ]]; then
     echo "SKIP Honeycomb: HONEYCOMB_API_KEY not set."
-    echo "  → Create a dataset manually at https://ui.honeycomb.io and store"
-    echo "    HONEYCOMB_API_KEY in GitHub secrets."
+    echo "  → Create a dataset manually at https://ui.honeycomb.io, then store its"
+    echo "    ingest key as the Pulumi config secret 'honeycomb_api_key' (see summary below)."
 else
     echo "Creating Honeycomb dataset: ${APP_NAME} …"
     curl -sf -X POST "https://api.honeycomb.io/1/datasets" \
@@ -79,7 +87,8 @@ else
         -d "{\"name\": \"${APP_NAME}\"}" \
         > /dev/null
     echo "  ✓ Honeycomb dataset created."
-    echo "  → Add HONEYCOMB_API_KEY to GitHub secrets."
+    echo "  → Store your Honeycomb ingest key as the Pulumi config secret"
+    echo "    'honeycomb_api_key' (see summary below)."
 fi
 
 echo ""
@@ -101,13 +110,18 @@ echo "Store each key as a Pulumi config secret so Pulumi can inject it into"
 echo "App Platform at deploy time. From the infra/ directory:"
 echo ""
 echo "  cd infra"
+echo "  pulumi stack init prod   # first time only — you create and own this stack"
 echo "  pulumi config set --secret clerk_secret_key  <CLERK_SECRET_KEY>"
 echo "  pulumi config set --secret flagsmith_api_key <FLAGSMITH_API_KEY>"
 echo "  pulumi config set --secret sentry_dsn        <SENTRY_DSN>"
 echo "  pulumi config set --secret honeycomb_api_key <HONEYCOMB_API_KEY>"
+{%- if include_frontend %}
+echo "  pulumi config set clerk_publishable_key <CLERK_PUBLISHABLE_KEY>   # frontend only, non-secret"
+{%- endif %}
 echo ""
 echo "Then deploy:"
 echo "  pulumi up"
 echo ""
-echo "Note: PULUMI_ACCESS_TOKEN and DIGITALOCEAN_TOKEN still go in GitHub"
-echo "Actions secrets (gh secret set) — they are CI credentials, not app secrets."
+echo "Note: PULUMI_ACCESS_TOKEN and DIGITALOCEAN_TOKEN are the only values that go"
+echo "in GitHub Actions secrets (gh secret set) — they are CI credentials. The"
+echo "SaaS setup tokens above are local-only and belong in neither GitHub nor Pulumi."
