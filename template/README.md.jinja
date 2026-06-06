@@ -91,14 +91,41 @@ these are injected by Pulumi as App Platform secrets — you never manage them m
 | `SENTRY_DSN` | Sentry DSN for error reporting |
 | `HONEYCOMB_API_KEY` | Honeycomb API key for observability |
 
-## Deployment
+## Deploying to the shared platform
 
-Merge to `main` — GitHub Actions handles everything:
+You need: an `app-deployer` DigitalOcean token and Pulumi access (ask your
+platform admin to grant you — see platform-infra → "Granting a new app-owner").
 
-1. `pulumi up` provisions/updates all infrastructure
-2. DigitalOcean App Platform redeploys from the latest commit automatically
+1. Set Pulumi config secrets (from `scripts/setup-saas.sh` output):
+   `pulumi config set --secret {{ app_name }}:clerk_secret_key …` (and
+   `flagsmith_api_key`, `sentry_dsn`, `honeycomb_api_key`). If you included the
+   frontend, also: `pulumi config set {{ app_name }}:clerk_publishable_key pk_test_…`.
+2. `cd infra && pulumi up` — creates your app + per-app database/user/pool.
+   The first deploy may fail to reach the database — that is expected until the
+   next step.
+3. **Ask your platform admin to onboard this app (one-time):**
+   `./scripts/onboard-app.sh {{ app_name }}` (run in platform-infra). This makes
+   your app a trusted source and grants your DB user schema privileges.
+4. Redeploy (push to `main`, or re-run `pulumi up`).
+5. In the Flagsmith dashboard, create the `hello_banner` flag (enabled) for your
+   environment so `/feature` reports it on.
+6. Verify: `curl https://<app-url>/api/` shows all integrations true.
 
-No manual deploy steps are needed.
+Once onboarded, merging to `main` triggers GitHub Actions (`pulumi up` + App
+Platform redeploy) automatically — no manual steps needed for subsequent deploys.
+
+## Credentials reference
+
+| Credential | Where it lives | Who provides it |
+|---|---|---|
+| `DIGITALOCEAN_TOKEN` (`app-deployer`) | local env + GitHub Actions secret | you (issued by admin) |
+| `PULUMI_ACCESS_TOKEN` | local + GitHub Actions secret | you |
+| `clerk_secret_key` | Pulumi config secret | you (Clerk **Development** instance) |
+| `clerk_publishable_key` | Pulumi config (non-secret) | you (frontend only) |
+| `flagsmith_api_key` | Pulumi config secret | you |
+| `sentry_dsn` | Pulumi config secret | you |
+| `honeycomb_api_key` | Pulumi config secret | you |
+| Trusted source + schema grant | platform clusters | **platform admin** (onboard-app.sh) |
 
 ## Post-Scaffold Setup
 
@@ -126,7 +153,7 @@ pulumi stack init prod   # first time only — creates the stack in Pulumi Cloud
 **3. Store the resulting keys as Pulumi config secrets** (this is what injects them into the app at runtime via App Platform):
 
 ```bash
-pulumi config set --secret clerk_secret_key  "sk_live_..."
+pulumi config set --secret clerk_secret_key  "sk_test_..."
 pulumi config set --secret flagsmith_api_key "..."
 pulumi config set --secret sentry_dsn        "https://...@sentry.io/..."
 pulumi config set --secret honeycomb_api_key "..."
