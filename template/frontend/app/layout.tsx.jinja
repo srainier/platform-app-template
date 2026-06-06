@@ -1,15 +1,25 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { Providers } from "./providers";
 
 export const metadata: Metadata = {
   title: "{{ app_display_name }}",
   description: "{{ app_display_name }}",
 };
 
+const bodyStyle = {
+  fontFamily: "system-ui, sans-serif",
+  maxWidth: 640,
+  margin: "2rem auto",
+  padding: "0 1rem",
+};
+
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body style={bodyStyle}>
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

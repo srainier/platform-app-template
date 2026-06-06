@@ -7,3 +7,8 @@ config:
   #   pulumi config set --secret {{ app_name }}:flagsmith_api_key <value>
   #   pulumi config set --secret {{ app_name }}:sentry_dsn        <value>
   #   pulumi config set --secret {{ app_name }}:honeycomb_api_key <value>
+{% if include_frontend %}
+  # Clerk publishable key is NOT secret (it is inlined into the static frontend
+  # at build time) but it IS required:
+  #   pulumi config set {{ app_name }}:clerk_publishable_key pk_test_<value>
+{% endif %}
