@@ -1,3 +1,13 @@
+> **Update 2026-06-06:** The platform now distinguishes infra-admin vs app-owner
+> roles; apps are onboarded by the admin via `onboard-app.sh`. See platform-infra
+> `docs/superpowers/specs/2026-06-06-platform-app-role-separation-design.md`.
+>
+> **Do not copy the code or commands below — they are historical.** The snippets
+> predate the role-separation changes and reference the now-removed
+> `postgres_admin_password` stack output and private `postgres_host` / `redis_url`
+> hosts that App Platform cannot reach. For current, safe-to-copy steps, follow the
+> generated app `README.md` and the platform-infra `README.md`.
+
 # Phase 2 — `platform-app-template` Implementation Plan
 
 ## Context
