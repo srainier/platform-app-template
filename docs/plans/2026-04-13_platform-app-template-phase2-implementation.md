@@ -1,3 +1,7 @@
+> **Update 2026-06-06:** The platform now distinguishes infra-admin vs app-owner
+> roles; apps are onboarded by the admin via `onboard-app.sh`. See platform-infra
+> `docs/superpowers/specs/2026-06-06-platform-app-role-separation-design.md`.
+
 # Phase 2 — `platform-app-template` Implementation Plan
 
 ## Context

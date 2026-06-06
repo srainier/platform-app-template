@@ -22,8 +22,12 @@ When you scaffold from this template, your new repo gets:
 ## Prerequisites
 
 - [`uv`](https://docs.astral.sh/uv/) installed
-- [Pulumi Cloud](https://app.pulumi.com/) account (free tier is fine)
-- [DigitalOcean](https://cloud.digitalocean.com/) account
+- [Pulumi Cloud](https://app.pulumi.com/) account — ask the platform admin to
+  grant you Pulumi **Admin** on your app stack and **Read** on
+  `platform-infra/prod`
+- A scoped **`app-deployer`** DigitalOcean token — issued by the platform admin
+  (see platform-infra →
+  ["Granting a new app-owner"](https://github.com/srainier/platform-infra#granting-a-new-app-owner))
 - [platform-infra](https://github.com/srainier/platform-infra) deployed and
   stack outputs available at `srainier/platform-infra/prod`
 
@@ -51,9 +55,9 @@ git init && git add . && git commit -m "chore: scaffold from platform-app-templa
 # 5. Create the GitHub repo and push
 gh repo create srainier/my-new-app --private --source=. --push
 
-# 6. Add GitHub Actions secrets
+# 6. Add GitHub Actions secrets (use your app-deployer DO token, NOT an admin token)
 gh secret set PULUMI_ACCESS_TOKEN --body "..."
-gh secret set DIGITALOCEAN_TOKEN  --body "..."
+gh secret set DIGITALOCEAN_TOKEN  --body "..."   # app-deployer scoped token
 
 # 7. Run SaaS setup (creates Flagsmith project, Sentry project, Honeycomb dataset)
 export FLAGSMITH_SERVER_API_KEY=...
@@ -64,15 +68,25 @@ bash scripts/setup-saas.sh
 
 # 8. Store SaaS credentials as Pulumi config secrets
 cd infra
-pulumi config set --secret clerk_secret_key  "sk_live_..."
+pulumi config set --secret clerk_secret_key  "sk_test_..."   # Clerk Development key
 pulumi config set --secret flagsmith_api_key "..."
 pulumi config set --secret sentry_dsn        "https://...@sentry.io/..."
 pulumi config set --secret honeycomb_api_key "..."
 
-# 9. Deploy infrastructure
+# 9. Deploy infrastructure (creates your app + per-app database/user/pool)
 cd infra && pulumi stack init prod && pulumi up
+# NOTE: the first deploy may fail to connect to the database — this is expected.
+# The platform admin must run the one-time onboarding step (step 10) first.
 
-# 10. Start building locally
+# 10. Ask the platform admin to onboard your app (one-time, run in platform-infra):
+#     ./scripts/onboard-app.sh my-new-app
+#   This registers your app as a trusted source on the shared clusters and grants
+#   your DB user schema privileges. See platform-infra → "Onboarding a new app".
+
+# 11. Redeploy after onboarding
+cd infra && pulumi up   # or push to main to trigger CI/CD
+
+# 12. Start building locally
 cd ..
 cp backend/.env.example backend/.env   # pydantic-settings reads backend/.env
 docker compose up -d
