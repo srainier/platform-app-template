@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP_NAME="{{ app_name }}"
+REPO="{{ github_handle }}/{{ app_name }}"
+
+echo "=== ${APP_NAME} new-app preflight ==="
+echo ""
+echo "Required runtime values to collect before deploy:"
+echo "  PULUMI_ACCESS_TOKEN              Pulumi token for this app stack"
+echo "  DIGITALOCEAN_TOKEN               app-deployer DO token, or admin token if you own infra"
+echo "  CLERK_SECRET_KEY                 Clerk Development secret key (sk_test_...)"
+{% if include_frontend %}
+echo "  CLERK_PUBLISHABLE_KEY            Clerk Development publishable key (pk_test_...)"
+{% endif %}
+echo "  FLAGSMITH_API_KEY                Flagsmith server-side environment key, not an admin token"
+echo "  SENTRY_DSN                       Sentry project DSN"
+echo "  HONEYCOMB_API_KEY                Honeycomb ingest key, not a configuration key"
+echo ""
+echo "Optional setup-only tokens for scripts/setup-saas.sh:"
+echo "  FLAGSMITH_SERVER_API_KEY         Only if creating a new Flagsmith project"
+echo "  SENTRY_AUTH_TOKEN + SENTRY_ORG   Only if creating a new Sentry project"
+echo "  HONEYCOMB_CONFIGURATION_API_KEY  Only if pre-creating a Honeycomb dataset"
+echo ""
+
+echo "Checking GitHub CLI auth..."
+gh auth status >/dev/null
+
+echo "Checking GitHub repo ${REPO}..."
+repo_json="$(gh repo view "${REPO}" --json defaultBranchRef,isEmpty,nameWithOwner,visibility)"
+echo "${repo_json}"
+
+if echo "${repo_json}" | python3 -c 'import json,sys; sys.exit(0 if json.load(sys.stdin)["defaultBranchRef"] else 1)'; then
+  echo "GitHub repo has a default branch."
+else
+  echo "ERROR: GitHub repo has no default branch yet. Push main before pulumi up." >&2
+  exit 1
+fi
+
+echo ""
+echo "Manual DigitalOcean check:"
+echo "  If ${REPO} is private, confirm the DigitalOcean GitHub app has access to it."
+echo "  In GitHub: Settings -> Applications -> Installed GitHub Apps -> DigitalOcean."
+echo "  Stop on DigitalOcean's create-app page; Pulumi creates the app."
+echo ""
+echo "Preflight complete."

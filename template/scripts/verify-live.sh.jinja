@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "$0")/../infra"
+
+APP_URL="$(pulumi stack output app_url --stack prod)"
+if [[ -z "${APP_URL}" ]]; then
+  echo "ERROR: app_url stack output is empty. Is the App Platform deployment active?" >&2
+  exit 1
+fi
+
+echo "App URL: ${APP_URL}"
+echo ""
+echo "API root:"
+curl -fsS "${APP_URL}/api/"
+echo ""
+echo ""
+echo "Feature flag:"
+curl -fsS "${APP_URL}/api/feature"
+echo ""
+echo ""
+echo "Root page:"
+curl -fsSI "${APP_URL}/" | sed -n '1,12p'

@@ -6,7 +6,7 @@ APP_DISPLAY_NAME="{{ app_display_name }}"
 
 echo "=== ${APP_DISPLAY_NAME} — SaaS Setup ==="
 echo ""
-echo "This script creates per-app resources in Flagsmith, Sentry, and Honeycomb."
+echo "This helper can create per-app resources in Flagsmith, Sentry, and Honeycomb."
 echo ""
 echo "The tokens below are YOUR personal SaaS-account setup tokens. They are used"
 echo "only locally, only while this script runs, to provision per-app resources."
@@ -19,14 +19,20 @@ echo "  FLAGSMITH_SERVER_API_KEY — admin token from Flagsmith account settings
 echo "  SENTRY_AUTH_TOKEN        — auth token from Sentry account settings"
 echo "  SENTRY_ORG               — your Sentry organisation slug"
 echo "  SENTRY_TEAM              — your Sentry team slug (defaults to SENTRY_ORG)"
-echo "  HONEYCOMB_API_KEY        — admin API key from Honeycomb team settings"
+echo "  HONEYCOMB_CONFIGURATION_API_KEY — Honeycomb configuration key, only if"
+echo "                                     you want this script to create a dataset"
+echo ""
+echo "Runtime keys you store in Pulumi config are different:"
+echo "  FLAGSMITH_API_KEY  — server-side environment key"
+echo "  SENTRY_DSN         — project DSN"
+echo "  HONEYCOMB_API_KEY  — ingest key"
 echo ""
 
 # ── Flagsmith ────────────────────────────────────────────────────────────────
 if [[ -z "${FLAGSMITH_SERVER_API_KEY:-}" ]]; then
     echo "SKIP Flagsmith: FLAGSMITH_SERVER_API_KEY not set."
     echo "  → Create a project manually at https://flagsmith.com, then store its"
-    echo "    environment API key as the Pulumi config secret 'flagsmith_api_key'"
+    echo "    server-side environment key as the Pulumi config secret 'flagsmith_api_key'"
     echo "    (see the summary at the end)."
 else
     echo "Creating Flagsmith project: ${APP_NAME} …"
@@ -39,7 +45,7 @@ else
         -d "{\"name\": \"${APP_DISPLAY_NAME}\", \"organisation\": ${ORG_ID}}" \
         > /dev/null
     echo "  ✓ Flagsmith project created."
-    echo "  → Copy the environment API key from the Flagsmith dashboard and store"
+    echo "  → Copy the server-side environment key from the Flagsmith dashboard and store"
     echo "    it as the Pulumi config secret 'flagsmith_api_key' (see summary below)."
 fi
 
@@ -75,20 +81,21 @@ fi
 echo ""
 
 # ── Honeycomb ────────────────────────────────────────────────────────────────
-if [[ -z "${HONEYCOMB_API_KEY:-}" ]]; then
-    echo "SKIP Honeycomb: HONEYCOMB_API_KEY not set."
-    echo "  → Create a dataset manually at https://ui.honeycomb.io, then store its"
-    echo "    ingest key as the Pulumi config secret 'honeycomb_api_key' (see summary below)."
+if [[ -z "${HONEYCOMB_CONFIGURATION_API_KEY:-}" ]]; then
+    echo "SKIP Honeycomb: HONEYCOMB_CONFIGURATION_API_KEY not set."
+    echo "  → Use a Honeycomb ingest key as the Pulumi config secret"
+    echo "    'honeycomb_api_key'. Honeycomb can auto-create the service/dataset, or"
+    echo "    you can create '${APP_NAME}' manually in the UI first."
 else
     echo "Creating Honeycomb dataset: ${APP_NAME} …"
     curl -sf -X POST "https://api.honeycomb.io/1/datasets" \
-        -H "X-Honeycomb-Team: ${HONEYCOMB_API_KEY}" \
+        -H "X-Honeycomb-Team: ${HONEYCOMB_CONFIGURATION_API_KEY}" \
         -H "Content-Type: application/json" \
         -d "{\"name\": \"${APP_NAME}\"}" \
         > /dev/null
     echo "  ✓ Honeycomb dataset created."
-    echo "  → Store your Honeycomb ingest key as the Pulumi config secret"
-    echo "    'honeycomb_api_key' (see summary below)."
+    echo "  → Store a Honeycomb ingest key as the Pulumi config secret"
+    echo "    'honeycomb_api_key'. Do not use the configuration key at runtime."
 fi
 
 echo ""
@@ -123,5 +130,5 @@ echo "Then deploy:"
 echo "  pulumi up"
 echo ""
 echo "Note: PULUMI_ACCESS_TOKEN and DIGITALOCEAN_TOKEN are the only values that go"
-echo "in GitHub Actions secrets (gh secret set) — they are CI credentials. The"
-echo "SaaS setup tokens above are local-only and belong in neither GitHub nor Pulumi."
+echo "in GitHub Actions secrets (gh secret set) — they are CI credentials. SaaS"
+echo "setup-only tokens above are local-only and belong in neither GitHub nor Pulumi."

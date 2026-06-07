@@ -1,21 +1,10 @@
-# SaaS Per-App Resource Setup
+# SaaS resources are created manually or by scripts/setup-saas.sh, not Pulumi.
 #
-# The following services do not have reliable Pulumi providers.
-# Run scripts/setup-saas.sh to create per-app resources via their REST APIs.
-# The script will print the API keys you need to add as GitHub Actions secrets.
+# Runtime SaaS values are stored as Pulumi config secrets so Pulumi can inject
+# them into App Platform. They are not GitHub Actions secrets:
+#   - clerk_secret_key: Clerk Development secret key.
+#   - flagsmith_api_key: server-side Flagsmith environment key.
+#   - sentry_dsn: Sentry project DSN.
+#   - honeycomb_api_key: Honeycomb ingest key.
 #
-# Services:
-#   - Clerk: Create a new Application in the Clerk dashboard (manual step).
-#             Store CLERK_SECRET_KEY as a GitHub Actions secret.
-#   - Flagsmith: Created automatically by setup-saas.sh
-#                Store FLAGSMITH_API_KEY as a GitHub Actions secret.
-#   - Sentry: Created automatically by setup-saas.sh
-#             Store SENTRY_AUTH_TOKEN + SENTRY_DSN as GitHub Actions secrets.
-#   - Honeycomb: Created automatically by setup-saas.sh
-#                Store HONEYCOMB_API_KEY as a GitHub Actions secret.
-#
-# After running setup-saas.sh:
-# 1. Copy the printed keys into GitHub Actions secrets (gh secret set <NAME>)
-# 2. Re-run `pulumi up` to inject the new secrets into App Platform env vars
-#
-# See README.md → "Post-Scaffold Setup" for the full checklist.
+# See README.md -> "Post-Scaffold Setup" for the full checklist.

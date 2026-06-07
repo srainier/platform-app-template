@@ -56,42 +56,52 @@ git init && git add . && git commit -m "chore: scaffold from platform-app-templa
 # 5. Create the GitHub repo and push
 gh repo create srainier/my-new-app --private --source=. --push
 
-# 6. Add GitHub Actions secrets (use your app-deployer DO token, NOT an admin token)
+# 6. If the repo is private, grant DigitalOcean's GitHub app access to it.
+#    Stop on DigitalOcean's create-app page; Pulumi creates the app.
+
+# 7. Run the generated preflight checklist
+bash scripts/preflight-new-app.sh
+
+# 8. Add GitHub Actions secrets (use your app-deployer DO token, NOT an admin token)
 gh secret set PULUMI_ACCESS_TOKEN --body "..."
 gh secret set DIGITALOCEAN_TOKEN  --body "..."   # app-deployer scoped token
 
-# 7. Run SaaS setup (creates Flagsmith project, Sentry project, Honeycomb dataset)
+# 9. Run SaaS setup if you want help creating external resources
 export FLAGSMITH_SERVER_API_KEY=...
 export SENTRY_AUTH_TOKEN=... SENTRY_ORG=...
-export HONEYCOMB_API_KEY=...
+export HONEYCOMB_CONFIGURATION_API_KEY=...
 bash scripts/setup-saas.sh
-# Follow the printed instructions to add the remaining secrets
+# Or manually create/reuse resources and collect:
+#   Flagsmith server-side environment key, Sentry DSN, Honeycomb ingest key
 
-# 8. Initialise your app stack, then store SaaS credentials as Pulumi config secrets
+# 10. Initialise your app stack, then store SaaS credentials as Pulumi config secrets
 cd infra
 pulumi stack init prod   # first time only — you create and own this stack
 pulumi config set --secret clerk_secret_key  "sk_test_..."   # Clerk Development key
-pulumi config set --secret flagsmith_api_key "..."
+pulumi config set --secret flagsmith_api_key "..."            # server-side environment key
 pulumi config set --secret sentry_dsn        "https://...@sentry.io/..."
-pulumi config set --secret honeycomb_api_key "..."
+pulumi config set --secret honeycomb_api_key "..."            # ingest key
 # If you included the frontend, also set the (non-secret) Clerk publishable key:
 pulumi config set clerk_publishable_key "pk_test_..."
 
-# 9. Deploy infrastructure (creates your app + per-app database/user/pool)
-pulumi up   # already inside infra/ from step 8
-# NOTE: the first deploy may fail to connect to the database — this is expected.
-# The platform admin must run the one-time onboarding step (step 10) first.
+# 11. Deploy infrastructure (creates your app + per-app database/user/pool)
+pulumi up   # already inside infra/ from step 10
+# NOTE: the first App Platform deployment may fail because the app is not yet
+# trusted by the shared database/Valkey firewalls. That is expected.
 
-# 10. Ask the platform admin to onboard your app (one-time, run in platform-infra):
+# 12. Ask the platform admin to onboard your app (one-time, run in platform-infra):
 #     ./scripts/onboard-app.sh my-new-app
 #   This registers your app as a trusted source on the shared clusters and grants
 #   your DB user schema privileges. See platform-infra → "Onboarding a new app".
 
-# 11. Redeploy after onboarding (still inside infra/ from step 8)
+# 13. Redeploy after onboarding (still inside infra/ from step 10)
 pulumi up   # or push to main to trigger CI/CD
 
-# 12. Start building locally
+# 14. Verify live
 cd ..
+bash scripts/verify-live.sh
+
+# 15. Start building locally
 cp backend/.env.example backend/.env   # pydantic-settings reads backend/.env
 docker compose up -d
 cd backend && uv sync && uv run uvicorn app.main:app --reload
@@ -157,7 +167,9 @@ my-new-app/
 │       ├── app_platform.py     # DO App Platform service + VPC + all secrets
 │       └── outputs.py
 ├── scripts/
-│   └── setup-saas.sh           # Creates Flagsmith/Sentry/Honeycomb resources
+│   ├── preflight-new-app.sh    # Checks repo/auth and prints credential checklist
+│   ├── setup-saas.sh           # Assists Flagsmith/Sentry/Honeycomb setup
+│   └── verify-live.sh          # Curls app_url /api and /feature
 ├── frontend/                   # if include_frontend=yes
 │   ├── .env.example            # copy to frontend/.env.local
 │   ├── package.json

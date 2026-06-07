@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v8
+      - uses: astral-sh/setup-uv@v8.2.0
         with:
           version: latest
       - name: Install infra dependencies
@@ -42,6 +42,11 @@ jobs:
         run: npm install
       - name: Build static export
         working-directory: frontend
+        # NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY must be present at build time or
+        # ClerkProvider throws during static prerender. The real publishable key
+        # is injected by App Platform at deploy time.
+        env:
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_ZXhhbXBsZS5jbGVyay5hY2NvdW50cy5kZXYk
         run: npm run build
       # DigitalOcean App Platform automatically rebuilds and redeploys the
       # static site on every push to main (deploy_on_push=true in Pulumi infra).
