@@ -1,5 +1,11 @@
 _subdirectory: template
 _templates_suffix: .jinja
+# DO App Platform's Python buildpack only detects a uv project when uv.lock is
+# present, so lock both Python projects at generation time (and on update).
+# Tasks require `copier copy --trust`.
+_tasks:
+  - command: "uv lock --directory backend"
+  - command: "uv lock --directory infra"
 _exclude:
   - "{% if not include_frontend %}frontend{% endif %}"
   - "{% if not include_ios %}ios{% endif %}"

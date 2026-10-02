@@ -39,7 +39,9 @@ When you scaffold from this template, your new repo gets:
 uv tool install copier
 
 # 2. Scaffold a new app
-copier copy gh:srainier/platform-app-template ../my-new-app
+copier copy --trust gh:srainier/platform-app-template ../my-new-app
+#    (--trust lets the template run `uv lock` for backend/ and infra/; DO
+#    App Platform needs the committed uv.lock to detect the Python build)
 
 # 3. Answer the prompts:
 #   app_name:          my-new-app
