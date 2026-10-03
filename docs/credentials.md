@@ -1,7 +1,7 @@
 # Credentials for a new app
 
 Step-by-step instructions for collecting the five runtime values a new app needs
-(README step 10). Each service shows several look-alike keys, so each section
+(README steps 9–10). Each service shows several look-alike keys, so each section
 ends with a **Copy this / Not these** table.
 
 UI paths were checked against each vendor's docs in October 2026. If a menu has
@@ -75,9 +75,11 @@ curl -s -H "X-Environment-Key: $(pulumi config get flagsmith_api_key)" \
 ## 2. Flagsmith: server-side environment key + the `hello_banner` flag
 
 > **Free plan = one project.** Flagsmith's free plan allows a single project, so
-> every app shares it (for us that's **App Template Test**). That's fine: each
-> app reads only the flags it asks for. Flag names must therefore be unique
-> across apps. `hello_banner` already exists there, so skip step 3 if so.
+> every app shares it (for us that's **App Template Test**). Each app gets its
+> own server-side key but sees the same flags. The template's demo flag
+> `hello_banner` already exists there, so skip step 3: every app reads that
+> one flag, and toggling it changes all of them. Give flags you add later an
+> app prefix (e.g. `my_app_new_checkout`) so apps don't collide.
 
 1. Go to **app.flagsmith.com** and open the project. On a paid plan, create a
    project named after the app instead.

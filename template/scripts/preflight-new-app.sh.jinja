@@ -3,6 +3,9 @@ set -euo pipefail
 
 APP_NAME="{{ app_name }}"
 REPO="{{ github_handle }}/{{ app_name }}"
+PLATFORM_STACK="{{ pulumi_org }}/platform-infra/prod"
+# Recommended home for the app-deployer token (see the new-app guide).
+TOKEN_FILE="${HOME}/.config/platform/app-deployer.token"
 
 echo "=== ${APP_NAME} new-app preflight ==="
 echo ""
@@ -36,6 +39,43 @@ else
   echo "ERROR: GitHub repo has no default branch yet. Push main before pulumi up." >&2
   exit 1
 fi
+
+echo ""
+echo "Checking Pulumi login and read access to ${PLATFORM_STACK}..."
+pulumi whoami >/dev/null || { echo "ERROR: run 'pulumi login' first." >&2; exit 1; }
+pulumi stack output do_region --stack "${PLATFORM_STACK}" >/dev/null || {
+  echo "ERROR: can't read ${PLATFORM_STACK}. Ask the platform admin to add you to" >&2
+  echo "       the app-owners team (platform-infra README: Granting a new app-owner)." >&2
+  exit 1
+}
+
+echo "Checking the DigitalOcean token..."
+if [[ -z "${DIGITALOCEAN_TOKEN:-}" && -r "${TOKEN_FILE}" ]]; then
+  DIGITALOCEAN_TOKEN="$(cat "${TOKEN_FILE}")"
+fi
+if [[ -z "${DIGITALOCEAN_TOKEN:-}" ]]; then
+  echo "ERROR: no DigitalOcean token. Save the app-deployer token to ${TOKEN_FILE}" >&2
+  echo "       (chmod 600) or export DIGITALOCEAN_TOKEN." >&2
+  exit 1
+fi
+do_status="$(curl -s -o /dev/null -w '%{http_code}' \
+  -H "Authorization: Bearer ${DIGITALOCEAN_TOKEN}" \
+  "https://api.digitalocean.com/v2/apps?per_page=1")"
+if [[ "${do_status}" != "200" ]]; then
+  echo "ERROR: DigitalOcean token rejected listing apps (HTTP ${do_status}). It needs app:read." >&2
+  exit 1
+fi
+echo "DigitalOcean token OK."
+
+echo "Checking GitHub Actions secrets (needed for CI deploys)..."
+secrets="$(gh secret list --repo "${REPO}" --json name --jq '.[].name' 2>/dev/null || true)"
+for name in PULUMI_ACCESS_TOKEN DIGITALOCEAN_TOKEN; do
+  if grep -qx "${name}" <<<"${secrets}"; then
+    echo "  ${name}: set"
+  else
+    echo "  ${name}: MISSING (set it before relying on CI; deploys are skipped until then)"
+  fi
+done
 
 echo ""
 echo "Manual DigitalOcean check:"

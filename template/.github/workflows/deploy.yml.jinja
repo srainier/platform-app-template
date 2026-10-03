@@ -9,17 +9,35 @@ jobs:
     name: Pulumi Up
     runs-on: ubuntu-latest
     steps:
+      # A freshly created repo pushes to main before its secrets exist (README
+      # step 5 vs step 8). Skip with a warning instead of failing that first run.
+      - name: Check deploy secrets
+        id: secrets
+{%- raw %}
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+          DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
+        run: |
+          if [[ -z "${PULUMI_ACCESS_TOKEN}" || -z "${DIGITALOCEAN_TOKEN}" ]]; then
+            echo "::warning::Deploy skipped: set the PULUMI_ACCESS_TOKEN and DIGITALOCEAN_TOKEN repository secrets."
+            echo "ready=false" >> "${GITHUB_OUTPUT}"
+          else
+            echo "ready=true" >> "${GITHUB_OUTPUT}"
+          fi
       - uses: actions/checkout@v6
+        if: steps.secrets.outputs.ready == 'true'
       - uses: astral-sh/setup-uv@v8.2.0
+        if: steps.secrets.outputs.ready == 'true'
         with:
           version: latest
       - name: Install infra dependencies
+        if: steps.secrets.outputs.ready == 'true'
         working-directory: infra
         run: uv sync
       - name: Pulumi Up
+        if: steps.secrets.outputs.ready == 'true'
         working-directory: infra
         run: uv run pulumi up --yes --stack prod
-{% raw %}
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
           DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}

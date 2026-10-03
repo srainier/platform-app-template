@@ -1,3 +1,6 @@
+import asyncio
+import contextlib
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 import sentry_sdk
@@ -9,7 +12,7 @@ from app.api.health import router as health_router
 from app.api.me import router as me_router
 from app.api.notes import router as notes_router
 from app.config import settings
-from app.models import create_tables
+from app.models import ensure_tables
 from app.telemetry import setup_telemetry
 
 # Initialise Sentry before the app is created so its FastAPI integration hooks
@@ -23,9 +26,14 @@ if settings.sentry_dsn:
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    await create_tables()
+async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
+    # Don't block startup on the database: a new app can't reach it until admin
+    # onboarding, and the first deploy should still come up healthy.
+    task = asyncio.create_task(ensure_tables())
     yield
+    task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await task
 
 
 app = FastAPI(

@@ -3,16 +3,26 @@
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
-from app.models import Note
+from app.models import Note, tables_ready
 from app.telemetry import get_tracer
 
-router = APIRouter()
+
+def require_database() -> None:
+    if not tables_ready():
+        raise HTTPException(
+            status_code=503,
+            detail="Database not ready yet. A new app needs admin onboarding "
+            "(platform-infra scripts/onboard-app.sh) before it can use Postgres.",
+        )
+
+
+router = APIRouter(dependencies=[Depends(require_database)])
 
 
 class NoteIn(BaseModel):

@@ -1,14 +1,14 @@
+# Runtime config for the prod stack. CI reads this file, so commit it.
+# Secret values are stored encrypted; set each one by copying it in the vendor UI
+# and piping the clipboard (keeps it out of shell history):
+#   pbpaste | pulumi config set --secret clerk_secret_key
+#   pbpaste | pulumi config set --secret flagsmith_api_key
+#   pbpaste | pulumi config set --secret sentry_dsn
+#   pbpaste | pulumi config set --secret honeycomb_api_key
+{%- if include_frontend %}
+#   pbpaste | pulumi config set clerk_publishable_key   # public, not secret
+{%- endif %}
+# Which key to copy from each vendor: docs/credentials.md in platform-app-template.
 config:
   {{ app_name }}:do_region: nyc3
   {{ app_name }}:environment: prod
-  # The following secrets must be set before running `pulumi up`.
-  # Run scripts/setup-saas.sh first to obtain the values, then:
-  #   pulumi config set --secret {{ app_name }}:clerk_secret_key  <value>
-  #   pulumi config set --secret {{ app_name }}:flagsmith_api_key <value>
-  #   pulumi config set --secret {{ app_name }}:sentry_dsn        <value>
-  #   pulumi config set --secret {{ app_name }}:honeycomb_api_key <value>
-{% if include_frontend %}
-  # Clerk publishable key is NOT secret (it is inlined into the static frontend
-  # at build time) but it IS required:
-  #   pulumi config set {{ app_name }}:clerk_publishable_key pk_test_<value>
-{% endif %}

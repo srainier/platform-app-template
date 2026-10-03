@@ -28,7 +28,13 @@ When you scaffold from this template, your new repo gets:
   get **Admin** on it automatically when you run `pulumi stack init`
 - A scoped **`app-deployer`** DigitalOcean token — issued by the platform admin
   (see platform-infra →
-  ["Granting a new app-owner"](https://github.com/srainier/platform-infra#granting-a-new-app-owner))
+  ["Granting a new app-owner"](https://github.com/srainier/platform-infra#granting-a-new-app-owner)).
+  Pulumi reads it only from `DIGITALOCEAN_TOKEN` (doctl contexts don't carry
+  over, and doctl can't show a saved token again), so keep it in a file:
+  ```bash
+  mkdir -p ~/.config/platform && chmod 700 ~/.config/platform
+  (umask 077; pbpaste > ~/.config/platform/app-deployer.token)   # after copying the token
+  ```
 - [platform-infra](https://github.com/srainier/platform-infra) deployed and
   stack outputs available at `srainier/platform-infra/prod`
 
@@ -38,8 +44,8 @@ When you scaffold from this template, your new repo gets:
 # 1. Install copier
 uv tool install copier
 
-# 2. Scaffold a new app
-copier copy --trust gh:srainier/platform-app-template ../my-new-app
+# 2. Scaffold a new app (run from the folder that should contain it)
+copier copy --trust gh:srainier/platform-app-template ./my-new-app
 #    (--trust lets the template run `uv lock` for backend/ and infra/; DO
 #    App Platform needs the committed uv.lock to detect the Python build)
 
@@ -52,22 +58,25 @@ copier copy --trust gh:srainier/platform-app-template ../my-new-app
 #   pulumi_org:        srainier
 
 # 4. Initialise git in the new repo
-cd ../my-new-app
+cd my-new-app
 git init && git add . && git commit -m "chore: scaffold from platform-app-template"
 
 # 5. Create the GitHub repo and push
 gh repo create srainier/my-new-app --private --source=. --push
+#    The push runs the Deploy workflow, which skips with a warning until the
+#    step-8 secrets exist. That's expected.
 
 # 6. If the repo is private, grant DigitalOcean's GitHub app access to it.
 #    Stop on DigitalOcean's create-app page; Pulumi creates the app.
 
-# 7. Run the generated preflight checklist
+# 7. Run the generated preflight checklist (checks GitHub, Pulumi access to
+#    platform-infra, the DO token, and which Actions secrets are set)
 bash scripts/preflight-new-app.sh
 
 # 8. Add GitHub Actions secrets (use your app-deployer DO token, NOT an admin token)
 # (copy each token, then run its line; see docs/credentials.md)
 pbpaste | gh secret set PULUMI_ACCESS_TOKEN   # dedicated Pulumi access token
-pbpaste | gh secret set DIGITALOCEAN_TOKEN    # app-deployer scoped token
+gh secret set DIGITALOCEAN_TOKEN < ~/.config/platform/app-deployer.token
 
 # 9. Create the SaaS resources and collect five values: Clerk publishable +
 #    secret key, Flagsmith server-side key, Sentry DSN, Honeycomb ingest key.
@@ -85,21 +94,28 @@ pbpaste | pulumi config set --secret clerk_secret_key        # sk_test_...
 pbpaste | pulumi config set --secret flagsmith_api_key       # ser....
 pbpaste | pulumi config set --secret sentry_dsn              # https://...@...sentry.io/...
 pbpaste | pulumi config set --secret honeycomb_api_key       # hcaik_... (64 chars)
+git add Pulumi.prod.yaml && git commit -m "chore: prod config" && git push
+#     (values are encrypted; CI's `pulumi up` reads this file)
 
 # 11. Deploy infrastructure (creates your app + per-app database/user/pool)
-pulumi up   # already inside infra/ from step 10
-# NOTE: the first App Platform deployment may fail because the app is not yet
-# trusted by the shared database/Valkey firewalls. That is expected.
+export DIGITALOCEAN_TOKEN="$(cat ~/.config/platform/app-deployer.token)"
+pulumi up   # already inside infra/ from step 10; takes ~4 minutes
+# The app deploys and serves, but /api/health reports "database": "waiting"
+# until onboarding (step 12): it can't reach the shared cluster yet.
 
 # 12. Ask the platform admin to onboard your app (one-time, run in platform-infra):
 #     ./scripts/onboard-app.sh my-new-app
 #   This registers your app as a trusted source on the shared clusters and grants
 #   your DB user schema privileges. See platform-infra → "Onboarding a new app".
 
-# 13. Redeploy after onboarding (still inside infra/ from step 10)
-pulumi up   # or push to main to trigger CI/CD
+# 13. Nothing to redeploy: the app retries the database and connects on its
+#     own within about a minute of onboarding. Check it:
+curl -s "$(pulumi stack output app_url)/api/health"   # "database": "ready"
+#     (Apps generated before this behaviour need a redeploy here:
+#      doctl apps create-deployment "$(pulumi stack output app_id)". A plain
+#      `pulumi up` does NOT redeploy when nothing changed.)
 
-# 14. Verify live
+# 14. Verify live (health incl. database, flag, auth; exits non-zero on failure)
 cd ..
 bash scripts/verify-live.sh
 
@@ -110,6 +126,33 @@ cd backend && uv sync && uv run uvicorn app.main:app --reload    # http://localh
 # second terminal, from the repo root (frontend apps only):
 cd frontend && npm install && npm run dev   # http://localhost:3000
 ```
+
+## Tearing an app down
+
+The `app-deployer` token can delete the App but not the database, user or pool
+(no `database:delete` scope, by design), so `pulumi destroy` must run with the
+admin token:
+
+```bash
+cd infra
+DIGITALOCEAN_TOKEN="$(cat ~/.config/platform/do-admin.token)" pulumi destroy
+pulumi stack rm prod
+```
+
+Then open a platform-infra PR removing the app's UUID from `trusted_app_ids`
+(after the destroy, not before), delete the GitHub repo, and delete the app's
+Clerk application, Flagsmith server-side key, Sentry project and Honeycomb
+ingest key. Keep the shared `hello_banner` flag.
+
+## Troubleshooting
+
+- **`pulumi refresh` makes the next `up` redeploy the app.** DigitalOcean
+  returns service env vars in its own order, so after a refresh every env var
+  looks changed. Run `pulumi up` once and it settles. Avoid refreshing unless
+  you need to.
+- **`verify-live.sh` says there's no live URL.** `app_url` is captured at
+  `pulumi up` time. Export `DIGITALOCEAN_TOKEN` and the script looks the URL up
+  from DigitalOcean instead.
 
 ## Scaffold Prompts
 
