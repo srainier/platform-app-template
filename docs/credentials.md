@@ -24,6 +24,10 @@ pbpaste | pulumi -C infra config set --secret honeycomb_api_key
 Run `pulumi stack init prod` in `infra/` first. The encrypted values land in
 `infra/Pulumi.prod.yaml`, which **is** committed because CI reads it.
 
+For local development, `bash scripts/dev-env.sh` copies these same values into
+the git-ignored `backend/.env` and `frontend/.env.local` without printing them.
+It refuses to write to a file git would track.
+
 ## What a correct value looks like
 
 | Config key | Format |

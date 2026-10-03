@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# Create the git-ignored local env files and fill in the SaaS dev keys from
+# this app's Pulumi config, without printing secret values.
+#
+#   bash scripts/dev-env.sh
+#
+# DATABASE_URL / REDIS_URL keep their .env.example values, which point at the
+# docker compose services, never at the shared cluster. Re-run any time; it
+# only replaces the SaaS key lines.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+INFRA="${ROOT}/infra"
+
+# Refuse to write secrets into a file git would pick up.
+ensure_env_file() {
+    local file="$1" example="$2"
+    if ! git -C "${ROOT}" rev-parse --git-dir >/dev/null 2>&1; then
+        echo "ERROR: ${ROOT} is not a git repo yet; run 'git init' first so .gitignore applies." >&2
+        exit 1
+    fi
+    if ! git -C "${ROOT}" check-ignore -q "${file}"; then
+        echo "ERROR: ${file#"${ROOT}"/} is not git-ignored; refusing to write secrets to it." >&2
+        exit 1
+    fi
+    if [[ ! -f "${file}" ]]; then
+        cp "${example}" "${file}"
+        echo "Created ${file#"${ROOT}"/} from ${example#"${ROOT}"/}"
+    fi
+    chmod 600 "${file}"
+}
+
+# set_from_pulumi <env file> <ENV_VAR> <pulumi config key>
+set_from_pulumi() {
+    local file="$1" var="$2" key="$3" value
+    if ! value="$(pulumi -C "${INFRA}" config get "${key}" 2>/dev/null)" || [[ -z "${value}" ]]; then
+        echo "  SKIP ${var}: Pulumi config '${key}' is not set (see docs/credentials.md)"
+        return
+    fi
+    # The value travels via the environment, never argv, so it is not exposed
+    # in the process list or shell trace.
+    VALUE="${value}" VAR="${var}" awk '
+        BEGIN { done = 0 }
+        $0 ~ "^#? *" ENVIRON["VAR"] "=" { print ENVIRON["VAR"] "=" ENVIRON["VALUE"]; done = 1; next }
+        { print }
+        END { if (!done) print ENVIRON["VAR"] "=" ENVIRON["VALUE"] }
+    ' "${file}" > "${file}.tmp"
+    mv "${file}.tmp" "${file}"
+    chmod 600 "${file}"
+    echo "  set ${var}"
+}
+
+BACKEND_ENV="${ROOT}/backend/.env"
+ensure_env_file "${BACKEND_ENV}" "${ROOT}/backend/.env.example"
+echo "backend/.env:"
+set_from_pulumi "${BACKEND_ENV}" CLERK_SECRET_KEY clerk_secret_key
+set_from_pulumi "${BACKEND_ENV}" FLAGSMITH_API_KEY flagsmith_api_key
+set_from_pulumi "${BACKEND_ENV}" SENTRY_DSN sentry_dsn
+set_from_pulumi "${BACKEND_ENV}" HONEYCOMB_API_KEY honeycomb_api_key
+{% if include_frontend %}
+FRONTEND_ENV="${ROOT}/frontend/.env.local"
+ensure_env_file "${FRONTEND_ENV}" "${ROOT}/frontend/.env.example"
+echo "frontend/.env.local:"
+set_from_pulumi "${FRONTEND_ENV}" NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY clerk_publishable_key
+{% endif %}
+echo ""
+echo "Done. Restart uvicorn{% if include_frontend %} and 'npm run dev'{% endif %} to pick up changes."
+echo "Tip: leave HONEYCOMB_API_KEY empty in backend/.env to print spans to the console instead."

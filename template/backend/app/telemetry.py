@@ -36,7 +36,14 @@ def setup_telemetry(app: FastAPI) -> None:
         FastAPIInstrumentor.instrument_app(app)
         return
 
-    resource = Resource.create({"service.name": settings.otel_service_name})
+    # deployment.environment separates local dev spans from production ones,
+    # since both share an ingest key and service.name.
+    resource = Resource.create(
+        {
+            "service.name": settings.otel_service_name,
+            "deployment.environment": settings.environment,
+        }
+    )
     provider = TracerProvider(resource=resource)
 
     exporter: SpanExporter
