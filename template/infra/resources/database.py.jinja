@@ -13,6 +13,10 @@ db_user = do.DatabaseUser(
     "{{ app_name }}-db-user",
     cluster_id=platform.postgres_cluster_id,
     name="{{ app_name | replace('-', '_') }}_user",
+    # DO returns user settings server-side, which shows up as a diff on the
+    # next `pulumi up`; applying it needs database:update, which the scoped
+    # app-deployer token deliberately lacks. This app never manages settings.
+    opts=pulumi.ResourceOptions(ignore_changes=["settings"]),
 )
 
 # Per-app PgBouncer pool on the shared cluster. Transaction-mode pooling keeps

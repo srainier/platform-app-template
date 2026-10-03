@@ -39,7 +39,9 @@ When you scaffold from this template, your new repo gets:
 uv tool install copier
 
 # 2. Scaffold a new app
-copier copy gh:srainier/platform-app-template ../my-new-app
+copier copy --trust gh:srainier/platform-app-template ../my-new-app
+#    (--trust lets the template run `uv lock` for backend/ and infra/; DO
+#    App Platform needs the committed uv.lock to detect the Python build)
 
 # 3. Answer the prompts:
 #   app_name:          my-new-app
@@ -63,26 +65,26 @@ gh repo create srainier/my-new-app --private --source=. --push
 bash scripts/preflight-new-app.sh
 
 # 8. Add GitHub Actions secrets (use your app-deployer DO token, NOT an admin token)
-gh secret set PULUMI_ACCESS_TOKEN --body "..."
-gh secret set DIGITALOCEAN_TOKEN  --body "..."   # app-deployer scoped token
+# (copy each token, then run its line; see docs/credentials.md)
+pbpaste | gh secret set PULUMI_ACCESS_TOKEN   # dedicated Pulumi access token
+pbpaste | gh secret set DIGITALOCEAN_TOKEN    # app-deployer scoped token
 
-# 9. Run SaaS setup if you want help creating external resources
-export FLAGSMITH_SERVER_API_KEY=...
-export SENTRY_AUTH_TOKEN=... SENTRY_ORG=...
-export HONEYCOMB_CONFIGURATION_API_KEY=...
-bash scripts/setup-saas.sh
-# Or manually create/reuse resources and collect:
-#   Flagsmith server-side environment key, Sentry DSN, Honeycomb ingest key
+# 9. Create the SaaS resources and collect five values: Clerk publishable +
+#    secret key, Flagsmith server-side key, Sentry DSN, Honeycomb ingest key.
+#    Follow docs/credentials.md: each service shows look-alike keys, and it
+#    lists exactly which one to copy. (scripts/setup-saas.sh can pre-create
+#    Flagsmith/Sentry/Honeycomb projects, but you still copy keys from the UIs.)
 
-# 10. Initialise your app stack, then store SaaS credentials as Pulumi config secrets
+# 10. Initialise your app stack, then store each value as Pulumi config.
+#     Copy a value in the vendor UI, then run its line (keeps secrets out of
+#     shell history). The committed infra/Pulumi.prod.yaml holds them encrypted.
 cd infra
 pulumi stack init prod   # first time only — you create and own this stack
-pulumi config set --secret clerk_secret_key  "sk_test_..."   # Clerk Development key
-pulumi config set --secret flagsmith_api_key "..."            # server-side environment key
-pulumi config set --secret sentry_dsn        "https://...@sentry.io/..."
-pulumi config set --secret honeycomb_api_key "..."            # ingest key
-# If you included the frontend, also set the (non-secret) Clerk publishable key:
-pulumi config set clerk_publishable_key "pk_test_..."
+pbpaste | pulumi config set clerk_publishable_key            # pk_test_...
+pbpaste | pulumi config set --secret clerk_secret_key        # sk_test_...
+pbpaste | pulumi config set --secret flagsmith_api_key       # ser....
+pbpaste | pulumi config set --secret sentry_dsn              # https://...@...sentry.io/...
+pbpaste | pulumi config set --secret honeycomb_api_key       # hcaik_... (64 chars)
 
 # 11. Deploy infrastructure (creates your app + per-app database/user/pool)
 pulumi up   # already inside infra/ from step 10
@@ -164,7 +166,7 @@ my-new-app/
 │       ├── platform.py         # StackReference → platform-infra
 │       ├── config.py           # Pulumi secrets (Clerk, Flagsmith, Sentry, Honeycomb)
 │       ├── database.py         # Creates DB on shared cluster
-│       ├── app_platform.py     # DO App Platform service + VPC + all secrets
+│       ├── app_platform.py     # DO App Platform service + static site + all secrets
 │       └── outputs.py
 ├── scripts/
 │   ├── preflight-new-app.sh    # Checks repo/auth and prints credential checklist

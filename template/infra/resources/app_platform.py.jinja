@@ -49,6 +49,9 @@ _services = [
         run_command="uvicorn app.main:app --host 0.0.0.0 --port 8080",
         http_port=8080,
         instance_size_slug="apps-s-1vcpu-0.5gb",
+        # Set explicitly: DO fills in 1 server-side, and leaving it unset makes
+        # every `pulumi up` see a diff and trigger a full redeploy.
+        instance_count=1,
         envs=_service_envs,
     )
 ]
@@ -120,7 +123,9 @@ app = do.App(
     "{{ app_name }}",
     spec=do.AppSpecArgs(
         name="{{ app_name }}",
-        region=platform.do_region,
+        # App Platform uses region slugs ("nyc"), not datacenter slugs ("nyc3").
+        # DO normalizes the latter, which otherwise shows up as a perpetual diff.
+        region=platform.do_region.apply(lambda r: r.rstrip("0123456789")),
         services=_services,
         static_sites=_static_sites,
         ingress=_ingress,
