@@ -3,6 +3,9 @@ name: Checks
 on:
   pull_request:
     branches: [main]
+  # Also on main, so commits pushed directly (not via a PR) are still checked.
+  push:
+    branches: [main]
 
 jobs:
   backend-typecheck:

@@ -104,9 +104,11 @@ cd ..
 bash scripts/verify-live.sh
 
 # 15. Start building locally
-cp backend/.env.example backend/.env   # pydantic-settings reads backend/.env
-docker compose up -d
-cd backend && uv sync && uv run uvicorn app.main:app --reload
+bash scripts/dev-env.sh                # backend/.env (+ frontend/.env.local) with dev keys from Pulumi config
+docker compose up -d --wait            # local Postgres + Valkey from compose.yaml
+cd backend && uv sync && uv run uvicorn app.main:app --reload    # http://localhost:8000/api/health
+# second terminal, from the repo root (frontend apps only):
+cd frontend && npm install && npm run dev   # http://localhost:3000
 ```
 
 ## Scaffold Prompts
@@ -171,7 +173,8 @@ my-new-app/
 ├── scripts/
 │   ├── preflight-new-app.sh    # Checks repo/auth and prints credential checklist
 │   ├── setup-saas.sh           # Assists Flagsmith/Sentry/Honeycomb setup
-│   └── verify-live.sh          # Curls app_url /api and /feature
+│   ├── verify-live.sh          # Curls app_url /api and /feature
+│   └── dev-env.sh              # Fills local env files from Pulumi config
 ├── frontend/                   # if include_frontend=yes
 │   ├── .env.example            # copy to frontend/.env.local
 │   ├── package.json

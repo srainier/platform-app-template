@@ -10,6 +10,21 @@ import type { ReactNode } from "react";
 const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "";
 
 export function Providers({ children }: { children: ReactNode }) {
+  // ClerkProvider throws on a missing or malformed key, which would 500 every
+  // page in `npm run dev`. Show how to fix it instead.
+  if (!publishableKey.startsWith("pk_")) {
+    return (
+      <main>
+        <h1>Clerk is not configured</h1>
+        <p>
+          Set <code>NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY</code> in{" "}
+          <code>frontend/.env.local</code> (run{" "}
+          <code>bash scripts/dev-env.sh</code> from the repo root), then restart{" "}
+          <code>npm run dev</code>.
+        </p>
+      </main>
+    );
+  }
   return (
     <ClerkProvider publishableKey={publishableKey}>{children}</ClerkProvider>
   );

@@ -36,11 +36,14 @@ This app is built on the [platform-infra](https://github.com/{{ github_handle }}
 ### Backend
 
 ```bash
-# Copy and fill in environment variables (pydantic-settings reads from backend/.env)
-cp backend/.env.example backend/.env
+# Create the git-ignored env files (backend/.env{% if include_frontend %}, frontend/.env.local{% endif %}) and fill
+# the SaaS dev keys from Pulumi config without echoing them. Every key is
+# optional; without one, that integration degrades gracefully. DATABASE_URL and
+# REDIS_URL point at docker compose, never the shared cluster.
+bash scripts/dev-env.sh        # or: cp backend/.env.example backend/.env
 
 # Start local Postgres + Valkey
-docker compose up -d
+docker compose up -d --wait
 
 # Install dependencies and run
 cd backend
@@ -48,19 +51,26 @@ uv sync
 uv run uvicorn app.main:app --reload
 ```
 
-The API will be available at http://localhost:8000.
+The API is at http://localhost:8000. Routes answer both with and without the
+`/api` prefix (production serves them under `/api`), e.g.
+http://localhost:8000/api/health and http://localhost:8000/api/docs.
+`/me` and `/notes` return 401 without a Clerk session token.
 {% if include_frontend %}
 
 ### Frontend
 
 ```bash
 cd frontend
-cp .env.example .env.local
+cp -n .env.example .env.local   # already created if you ran scripts/dev-env.sh
 npm install
 npm run dev
 ```
 
-The frontend will be available at http://localhost:3000.
+The frontend is at http://localhost:3000 and calls the backend at
+`NEXT_PUBLIC_API_URL` (http://localhost:8000; CORS allows `localhost:3000`
+via `CORS_ORIGINS`). Without `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` it shows a
+setup notice. `NEXT_PUBLIC_*` values are inlined when the dev server starts, so
+restart `npm run dev` after changing `.env.local`.
 {% endif %}
 
 ## Tests
