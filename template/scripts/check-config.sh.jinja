@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# Check this app's SaaS config: formats plus a read-only call to each vendor.
+# Never prints a secret value. Exits non-zero if any check fails.
+set -euo pipefail
+cd "$(dirname "$0")/../infra"
+
+pulumi config --json --show-secrets --stack prod | INCLUDE_FRONTEND="{{ 'yes' if include_frontend else 'no' }}" python3 -c '
+import base64, json, os, re, sys, urllib.error, urllib.request
+
+app = None
+cfg = {}
+for key, entry in json.load(sys.stdin).items():
+    app, _, name = key.partition(":")
+    cfg[name] = entry.get("value") or ""
+
+failed = False
+
+
+def report(name, ok, detail):
+    global failed
+    failed |= not ok
+    status = "ok  " if ok else "FAIL"
+    print(f"  {status}  {name:22} {detail}")
+
+
+def get(url, headers=None):
+    req = urllib.request.Request(url, headers={"User-Agent": "check-config", **(headers or {})})
+    try:
+        with urllib.request.urlopen(req, timeout=15) as r:
+            return r.status, r.read()
+    except urllib.error.HTTPError as e:
+        return e.code, b""
+    except OSError as e:
+        return 0, str(e).encode()
+
+
+def fmt(name, pattern, hint):
+    v = cfg.get(name, "")
+    if not v:
+        report(name, False, "not set")
+        return None
+    if not re.fullmatch(pattern, v):
+        report(name, False, f"wrong format (expected {hint})")
+        return None
+    return v
+
+
+v = fmt("clerk_secret_key", r"sk_test_[A-Za-z0-9]+", "sk_test_…")
+if v:
+    s, _ = get("https://api.clerk.com/v1/users?limit=1", {"Authorization": f"Bearer {v}"})
+    report("clerk_secret_key", s == 200, f"Clerk API HTTP {s}")
+
+if os.environ["INCLUDE_FRONTEND"] == "yes":
+    v = fmt("clerk_publishable_key", r"pk_test_[A-Za-z0-9]+=*", "pk_test_…")
+    if v:
+        b = v.split("_", 2)[2]
+        host = base64.b64decode(b + "=" * (-len(b) % 4)).decode(errors="replace").rstrip("$")
+        s, _ = get(f"https://{host}/v1/environment")
+        report("clerk_publishable_key", s == 200, f"Clerk frontend API HTTP {s}")
+
+v = fmt("flagsmith_api_key", r"ser\.[A-Za-z0-9]+", "ser.… (server-side key)")
+if v:
+    s, body = get("https://edge.api.flagsmith.com/api/v1/flags/", {"X-Environment-Key": v})
+    names = [f["feature"]["name"] for f in json.loads(body)] if s == 200 else []
+    flag = "present" if "hello_banner" in names else "MISSING"
+    report("flagsmith_api_key", s == 200 and flag == "present",
+           f"HTTP {s}, {len(names)} flags, hello_banner {flag}")
+
+v = fmt("sentry_dsn", r"https://[0-9a-f]+@o\d+\.ingest\.(us\.|de\.)?sentry\.io/\d+", "https://<key>@o<org>.ingest.sentry.io/<project>")
+if v:
+    report("sentry_dsn", True, "format ok (Sentry has no read-only check for a DSN)")
+
+v = fmt("honeycomb_api_key", r"hcaik_[A-Za-z0-9]{58}", "hcaik_… with 64 characters")
+if v:
+    s, body = get("https://api.honeycomb.io/1/auth", {"X-Honeycomb-Team": v})
+    kind = json.loads(body).get("type") if s == 200 else None
+    report("honeycomb_api_key", s == 200 and kind == "ingest", f"HTTP {s}, key type {kind}")
+
+sys.exit(1 if failed else 0)
+'
