@@ -92,11 +92,12 @@ Follow [credentials.md](credentials.md) for the click paths and the
 4. **Honeycomb**: in the `prod` environment, create an **ingest** key named
    `<APP>`. Copy the 64-character value from the dialog; it's shown only once.
 
-Put the five values in a private hand-off file. Phase 4 loads it into Pulumi
+Put the five values in a private hand-off file named after **your** app's slug
+(`~/.config/platform/apps/<your-app-slug>.env`). Phase 4 loads it into Pulumi
 config and then you delete it:
 
 ```bash
-APP=my-new-app
+APP=<your-app-slug>          # replace with your slug from 0.2, e.g. hello-accept
 mkdir -p ~/.config/platform/apps
 (umask 077; cat > ~/.config/platform/apps/$APP.env <<'EOF'
 CLERK_PUBLISHABLE_KEY=''
@@ -140,7 +141,7 @@ Honeycomb dashboards, unless you also hand over read tokens for them.
 ## Phase 1: preconditions [agent]
 
 ```bash
-APP=my-new-app
+APP=<your-app-slug>          # replace with your slug from 0.2, e.g. hello-accept
 for f in app-deployer pulumi-ci; do test -s ~/.config/platform/$f.token || echo "missing $f.token"; done
 test -s ~/.config/platform/apps/$APP.env || echo "missing hand-off file"
 pulumi whoami && gh auth status && uv --version && copier --version
@@ -157,7 +158,7 @@ repo name is free.
 ```bash
 cd ~/mini   # the folder that should contain the app
 copier copy --trust gh:srainier/platform-app-template ./$APP \
-  -d app_name=$APP -d "app_display_name=My New App" \
+  -d app_name=$APP -d "app_display_name=<Your Display Name>" \
   -d include_frontend=true -d include_ios=false \
   -d github_handle=srainier -d pulumi_org=srainier
 cd $APP
