@@ -40,6 +40,12 @@ When you scaffold from this template, your new repo gets:
 
 ## Usage
 
+> **Starting a new app? Use [docs/new-app-guide.md](docs/new-app-guide.md).**
+> It's the tested, agent-ready procedure: a **Step 0** that collects every token
+> and key up front, then phases with a checkpoint each. The steps below are the
+> condensed version. [docs/automation-roadmap.md](docs/automation-roadmap.md)
+> lists what still needs a person and how to automate it.
+
 ```bash
 # 1. Install copier
 uv tool install copier
@@ -94,6 +100,8 @@ pbpaste | pulumi config set --secret clerk_secret_key        # sk_test_...
 pbpaste | pulumi config set --secret flagsmith_api_key       # ser....
 pbpaste | pulumi config set --secret sentry_dsn              # https://...@...sentry.io/...
 pbpaste | pulumi config set --secret honeycomb_api_key       # hcaik_... (64 chars)
+#     (or put all five in a chmod-600 file and run `bash ../scripts/load-config.sh`;
+#      then `bash ../scripts/check-config.sh` tests each value without printing it)
 git add Pulumi.prod.yaml && git commit -m "chore: prod config" && git push
 #     (values are encrypted; CI's `pulumi up` reads this file)
 
@@ -216,7 +224,9 @@ my-new-app/
 ├── scripts/
 │   ├── preflight-new-app.sh    # Checks repo/auth and prints credential checklist
 │   ├── setup-saas.sh           # Assists Flagsmith/Sentry/Honeycomb setup
-│   ├── verify-live.sh          # Curls app_url /api and /feature
+│   ├── load-config.sh          # Stores SaaS values from a private file as Pulumi config
+│   ├── check-config.sh         # Validates SaaS config (formats + read-only vendor calls)
+│   ├── verify-live.sh          # Smoke-tests the live app (health incl. DB, flag, auth)
 │   └── dev-env.sh              # Fills local env files from Pulumi config
 ├── frontend/                   # if include_frontend=yes
 │   ├── .env.example            # copy to frontend/.env.local
