@@ -103,48 +103,42 @@ these are injected by Pulumi as App Platform secrets — you never manage them m
 
 ## Deploying to the shared platform
 
-You need: an `app-deployer` DigitalOcean token and Pulumi access (ask your
-platform admin to grant you — see platform-infra → "Granting a new app-owner").
+The full first-time procedure, including which key to copy from each vendor, is
+the [platform-app-template README](https://github.com/{{ github_handle }}/platform-app-template#usage).
+In short, from the repo root:
 
-1. Make sure the GitHub repo exists, has a pushed `main` branch, and is visible
-   to DigitalOcean App Platform. For private repos, grant the DigitalOcean
-   GitHub app access to this repository in GitHub. Stop on DigitalOcean's
-   create-app page; Pulumi creates the app.
-2. Run the generated preflight checklist:
-   ```bash
-   bash scripts/preflight-new-app.sh
-   ```
-3. Initialise your app stack, set config, and deploy — all from `infra/`:
-   ```bash
-   cd infra
-   pulumi stack init prod           # first time only — you create and own this stack
-   # Runtime SaaS values:
-   pulumi config set --secret clerk_secret_key  <value>
-   pulumi config set --secret flagsmith_api_key <server-side environment key>
-   pulumi config set --secret sentry_dsn        <value>
-   pulumi config set --secret honeycomb_api_key <ingest key>
+```bash
+# DigitalOcean token for local Pulumi runs (app-deployer, issued by your admin)
+export DIGITALOCEAN_TOKEN="$(cat ~/.config/platform/app-deployer.token)"
+
+bash scripts/preflight-new-app.sh      # checks GitHub, Pulumi, DO token, secrets
+
+cd infra
+pulumi stack init prod                 # first time only; you own this stack
+# Copy each value in the vendor UI, then run its line (keeps it out of history):
+pbpaste | pulumi config set --secret clerk_secret_key
+pbpaste | pulumi config set --secret flagsmith_api_key   # server-side key, ser.…
+pbpaste | pulumi config set --secret sentry_dsn
+pbpaste | pulumi config set --secret honeycomb_api_key   # ingest key, 64 chars
 {%- if include_frontend %}
-   pulumi config set clerk_publishable_key pk_test_<value>   # frontend only, non-secret
+pbpaste | pulumi config set clerk_publishable_key        # pk_test_…, not secret
 {%- endif %}
-   pulumi up                        # creates your app + per-app database/user/pool
-   ```
-   The first App Platform deployment may fail because the app is not yet trusted
-   by the shared database/Valkey firewalls — that is expected until onboarding.
-4. **Ask your platform admin to onboard this app (one-time):**
-   `./scripts/onboard-app.sh {{ app_name }}` (run in platform-infra). This makes
-   your app a trusted source and grants your DB user schema privileges.
-5. Redeploy (push to `main`, or re-run `pulumi up` from `infra/`).
-6. In the Flagsmith dashboard, create the `hello_banner` flag (enabled) for your
-   environment so `/feature` reports it on.
-7. Get your live URL and verify:
-   ```bash
-   pulumi stack output app_url                  # https://{{ app_name }}-xxxx.ondigitalocean.app
-   curl "$(pulumi stack output app_url)/api/"   # all integrations should report true
-   bash ../scripts/verify-live.sh
-   ```
+git add Pulumi.prod.yaml && git commit -m "chore: prod config" && git push   # CI reads it (values are encrypted)
 
-Once onboarded, merging to `main` triggers GitHub Actions (`pulumi up` + App
-Platform redeploy) automatically — no manual steps needed for subsequent deploys.
+pulumi up                              # creates the app + per-app database/user/pool
+```
+
+The app comes up with `/api/health` reporting `"database": "waiting"` until the
+platform admin onboards it (one time, in platform-infra:
+`./scripts/onboard-app.sh {{ app_name }}`). After onboarding the app connects on
+its own within about a minute; no redeploy is needed. Then:
+
+```bash
+bash scripts/verify-live.sh            # passes once "database" is "ready"
+```
+
+After that, every merge to `main` deploys automatically (GitHub Actions runs
+`pulumi up`; App Platform rebuilds on push).
 
 ## Credentials reference
 
@@ -159,100 +153,36 @@ Platform redeploy) automatically — no manual steps needed for subsequent deplo
 | `honeycomb_api_key` | Pulumi config secret | you (ingest key) |
 | Trusted source + schema grant | platform clusters | **platform admin** (onboard-app.sh) |
 
-## Post-Scaffold Setup
-
-After scaffolding this repo for the first time:
-
-**1. Run the preflight checklist:**
-
-```bash
-bash scripts/preflight-new-app.sh
-```
-
-**2. Create or reuse per-app SaaS resources:**
-
-```bash
-# Optional setup-only tokens. Skip these if you created/reused resources manually.
-export FLAGSMITH_SERVER_API_KEY=...
-export SENTRY_AUTH_TOKEN=...
-export SENTRY_ORG=...
-export HONEYCOMB_CONFIGURATION_API_KEY=...
-
-bash scripts/setup-saas.sh
-```
-
-Collect the runtime values for Pulumi config:
-
-- Clerk Development secret key (`sk_test_...`)
-{% if include_frontend -%}
-- Clerk Development publishable key (`pk_test_...`)
-{% endif -%}
-- Flagsmith server-side environment key
-- Sentry DSN
-- Honeycomb ingest key
-
-**3. Initialize Pulumi stack:**
-
-```bash
-cd infra
-pulumi stack init prod   # first time only — creates the stack in Pulumi Cloud
-```
-
-**4. Store the runtime keys as Pulumi config secrets** (this is what injects them into the app at runtime via App Platform):
-
-```bash
-pulumi config set --secret clerk_secret_key  "sk_test_..."
-pulumi config set --secret flagsmith_api_key "..."   # server-side environment key
-pulumi config set --secret sentry_dsn        "https://...@sentry.io/..."
-pulumi config set --secret honeycomb_api_key "..."   # ingest key
-{%- if include_frontend %}
-# Frontend only — the Clerk publishable key is required but NOT secret
-# (it is inlined into the static bundle at build time):
-pulumi config set clerk_publishable_key "pk_test_..."
-{%- endif %}
-```
-
-**5. Add CI credentials as GitHub Actions secrets** (for CI/CD deployments):
-
-```bash
-gh secret set PULUMI_ACCESS_TOKEN --body "..."
-gh secret set DIGITALOCEAN_TOKEN  --body "..."
-```
-
-**6. Deploy infrastructure:**
-
-For local deployment, export the same tokens as environment variables:
-
-```bash
-export PULUMI_ACCESS_TOKEN="pul-..."
-export DIGITALOCEAN_TOKEN="dop_v1_..."
-
-pulumi up
-```
-
-(In CI/CD, GitHub Actions automatically uses the secrets from step 5)
-
 ## GitHub Actions Secrets Required
 
 | Secret | Description |
 |---|---|
 | `PULUMI_ACCESS_TOKEN` | Pulumi Cloud token (used by deploy workflow) |
-| `DIGITALOCEAN_TOKEN` | DigitalOcean API token (used by deploy workflow) |
+| `DIGITALOCEAN_TOKEN` | `app-deployer` DigitalOcean token (used by deploy workflow) |
 
-SaaS credentials (`CLERK_SECRET_KEY`, `FLAGSMITH_API_KEY`, `SENTRY_DSN`,
-`HONEYCOMB_API_KEY`) are stored as **Pulumi config secrets**, not GitHub secrets.
-Pulumi injects them directly into App Platform as runtime environment variables.
+Set each by copying it, then `pbpaste | gh secret set <NAME>`. Until both exist,
+the deploy workflow skips with a warning. SaaS credentials are **Pulumi config
+secrets**, not GitHub secrets; Pulumi injects them into App Platform at deploy.
+
+## Tearing it down
+
+`pulumi destroy` needs `database:delete`, which the `app-deployer` token
+deliberately lacks, so ask the platform admin to run it with their token. Then
+remove the app's ID from platform-infra `trusted_app_ids` (PR), delete the
+GitHub repo, and delete the Clerk app, Flagsmith key, Sentry project and
+Honeycomb key.
 
 ## Feature Flags
 
 Feature flags are managed in [Flagsmith](https://flagsmith.com). To add a flag:
 
-1. Create the flag in the Flagsmith dashboard for this project
-2. Read it in Python:
+1. Create the flag in the Flagsmith dashboard. On the free plan all apps share
+   one project, so prefix it with the app name (e.g. `{{ app_name | replace('-', '_') }}_my_feature`).
+2. Read it in Python (see `backend/app/api/feature.py`):
    ```python
    from flagsmith import Flagsmith
    flagsmith = Flagsmith(environment_key=settings.flagsmith_api_key)
-   is_enabled = flagsmith.is_feature_enabled("my-feature")
+   is_enabled = flagsmith.get_environment_flags().is_feature_enabled("{{ app_name | replace('-', '_') }}_my_feature")
    ```
 
 ## Dashboard Links

@@ -1,23 +1,56 @@
 #!/usr/bin/env bash
+# Smoke-test the live app. Exits non-zero on the first failed check.
 set -euo pipefail
 
 cd "$(dirname "$0")/../infra"
 
-APP_URL="$(pulumi stack output app_url --stack prod)"
+APP_URL="$(pulumi stack output app_url --stack prod 2>/dev/null || true)"
 if [[ -z "${APP_URL}" ]]; then
-  echo "ERROR: app_url stack output is empty. Is the App Platform deployment active?" >&2
+  # The output is captured at `pulumi up` time; if no deployment was live then,
+  # ask DigitalOcean for the current URL instead.
+  APP_ID="$(pulumi stack output app_id --stack prod 2>/dev/null || true)"
+  if [[ -n "${APP_ID}" && -n "${DIGITALOCEAN_TOKEN:-}" ]]; then
+    APP_URL="$(curl -fsS -H "Authorization: Bearer ${DIGITALOCEAN_TOKEN}" \
+      "https://api.digitalocean.com/v2/apps/${APP_ID}" |
+      python3 -c 'import json,sys; print(json.load(sys.stdin)["app"].get("live_url") or "")')"
+  fi
+fi
+if [[ -z "${APP_URL}" ]]; then
+  echo "ERROR: no live URL yet. Check the deployment in the DigitalOcean console" >&2
+  echo "       (or set DIGITALOCEAN_TOKEN so this script can look it up)." >&2
   exit 1
 fi
+
+fail() { echo "FAIL: $*" >&2; exit 1; }
+
+# API routes live under /api when a frontend shares the app, else at the root.
+API="${APP_URL}{% if include_frontend %}/api{% endif %}"
 
 echo "App URL: ${APP_URL}"
 echo ""
 echo "API root:"
-curl -fsS "${APP_URL}/api/"
+curl -fsS "${API}/"
 echo ""
+echo ""
+echo "Health:"
+health="$(curl -fsS "${API}/health")"
+echo "${health}"
+if [[ "${health}" != *'"database":"ready"'* ]]; then
+  fail "database is not ready. A new app needs admin onboarding (platform-infra scripts/onboard-app.sh); the app picks the database up within a minute afterwards."
+fi
 echo ""
 echo "Feature flag:"
-curl -fsS "${APP_URL}/api/feature"
+curl -fsS "${API}/feature"
 echo ""
 echo ""
+echo "Auth (expect 401 without a token):"
+code="$(curl -s -o /dev/null -w '%{http_code}' "${API}/me")"
+echo "${code}"
+[[ "${code}" == "401" ]] || fail "/me returned ${code}, expected 401"
+echo ""
+{%- if include_frontend %}
 echo "Root page:"
-curl -fsSI "${APP_URL}/" | sed -n '1,12p'
+curl -fsSI "${APP_URL}/" | sed -n '1p'
+{%- endif %}
+echo ""
+echo "All checks passed."
